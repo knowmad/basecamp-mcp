@@ -15,7 +15,7 @@ The baseline setup applies across most tools:
   "mcpServers": {
     "basecamp": {
       "command": "npx",
-      "args": ["-y", "@basecamp/mcp@latest"],
+      "args": ["-y", "basecamp-mcp@latest"],
       "env": {
         "BASECAMP_CLIENT_ID": "your_client_id",
         "BASECAMP_CLIENT_SECRET": "your_client_secret",
@@ -32,7 +32,7 @@ The baseline setup applies across most tools:
 
 **Claude Code CLI:**
 ```bash
-claude mcp add basecamp npx @basecamp/mcp@latest \
+claude mcp add basecamp npx basecamp-mcp@latest \
   -e BASECAMP_CLIENT_ID=your_client_id \
   -e BASECAMP_CLIENT_SECRET=your_client_secret \
   -e BASECAMP_REFRESH_TOKEN=your_refresh_token \
@@ -46,7 +46,7 @@ claude mcp add basecamp npx @basecamp/mcp@latest \
 
 **VS Code:** One-click installation provided, or use the CLI:
 ```bash
-code --add-mcp '{"name":"basecamp","command":"npx","args":["-y", "@basecamp/mcp@latest"]}'
+code --add-mcp '{"name":"basecamp","command":"npx","args":["-y", "basecamp-mcp@latest"]}'
 ```
 
 **Gemini CLI & Windsurf:** Refer to their respective documentation; use the standard config template.
@@ -68,7 +68,7 @@ The server requires the following environment variables:
   "mcpServers": {
     "basecamp": {
       "command": "npx",
-      "args": ["-y", "@basecamp/mcp@latest"],
+      "args": ["-y", "basecamp-mcp@latest"],
       "env": {
         "BASECAMP_CLIENT_ID": "your_client_id",
         "BASECAMP_CLIENT_SECRET": "your_client_secret",
