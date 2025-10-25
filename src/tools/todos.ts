@@ -7,6 +7,7 @@ import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
+import { htmlRules } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
 export function registerTodoTools(server: McpServer): void {
@@ -147,7 +148,7 @@ export function registerTodoTools(server: McpServer): void {
     "basecamp_create_todo",
     {
       title: "Create Basecamp Todo",
-      description: "Create a new todo item in a todo list.",
+      description: `Create a new todo item in a todo list. ${htmlRules}`,
       inputSchema: {
         bucket_id: BasecampIdSchema,
         todolist_id: BasecampIdSchema,

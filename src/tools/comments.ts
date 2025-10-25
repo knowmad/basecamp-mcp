@@ -11,6 +11,7 @@ import { initializeBasecampClient } from "../utils/auth.js";
 import {
   applyContentOperations,
   ContentOperationFields,
+  htmlRules,
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
@@ -89,7 +90,7 @@ export function registerCommentTools(server: McpServer): void {
           .string()
           .min(1)
           .describe(
-            `Comment content. HTML supported. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
+            `HTML comment content. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
           ),
       },
       annotations: {
@@ -134,8 +135,7 @@ export function registerCommentTools(server: McpServer): void {
     "basecamp_update_comment",
     {
       title: "Update Basecamp Comment",
-      description:
-        "Update a comment. At least one content field (content, or partial content operations) must be provided. Use partial content operations when possible to save on token usage. Returns updated comment.",
+      description: `Update a comment. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         bucket_id: BasecampIdSchema,
         comment_id: BasecampIdSchema,

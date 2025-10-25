@@ -10,6 +10,7 @@ import { initializeBasecampClient } from "../utils/auth.js";
 import {
   applyContentOperations,
   ContentOperationFields,
+  htmlRules,
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
@@ -207,7 +208,7 @@ export function registerKanbanTools(server: McpServer): void {
     "basecamp_create_kanban_card",
     {
       title: "Create Kanban Card",
-      description: "Create a new card in a kanban column.",
+      description: `Create a new card in a kanban column. ${htmlRules}`,
       inputSchema: {
         bucket_id: BasecampIdSchema,
         column_id: BasecampIdSchema,
@@ -253,8 +254,7 @@ export function registerKanbanTools(server: McpServer): void {
     "basecamp_update_kanban_card",
     {
       title: "Update Kanban Card",
-      description:
-        "Update a kanban card. At least one field (title, content, or partial content operations) must be provided. Use partial content operations when possible to save on token usage. Returns updated card.",
+      description: `Update a kanban card. At least one field (title, content, or partial content operations) must be provided. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         bucket_id: BasecampIdSchema,
         card_id: BasecampIdSchema,

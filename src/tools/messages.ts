@@ -12,6 +12,7 @@ import { initializeBasecampClient } from "../utils/auth.js";
 import {
   applyContentOperations,
   ContentOperationFields,
+  htmlRules,
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
@@ -60,7 +61,6 @@ export function registerMessageTools(server: McpServer): void {
                   subject: msg.title,
                   content: msg.content || "",
                   author: serializePerson(msg.creator),
-                  message_type_id: msg.category?.id,
                   created_at: msg.created_at,
                   updated_at: msg.updated_at,
                   url: msg.app_url,
@@ -134,7 +134,6 @@ export function registerMessageTools(server: McpServer): void {
                   id: m.id,
                   title: m.title,
                   creator: serializePerson(m.creator),
-                  message_type_id: m.category?.id,
                   created_at: m.created_at,
                 })),
                 null,
@@ -220,7 +219,7 @@ export function registerMessageTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            `Message content. HTML supported. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
+            `HTML message content. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
           ),
         message_type_id: BasecampIdSchema.optional().describe(
           "Optional message type/category ID",
@@ -277,7 +276,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_update_message",
     {
       title: "Update Basecamp Message",
-      description: `Update a message. At least one field (subject, content, or partial content operations) must be provided. Use partial content operations when possible to save on token usage. Returns updated message.`,
+      description: `Update a message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         bucket_id: BasecampIdSchema,
         message_id: BasecampIdSchema,

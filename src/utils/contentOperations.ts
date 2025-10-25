@@ -5,6 +5,15 @@
 
 import { z } from "zod";
 
+export const htmlRules = `
+
+HTML rules for content:
+
+* Allowed tags: div, h1, br, strong, em, strike, a (with an href attribute), pre, ol, ul, li, blockquote, bc-attachment (with sgid attribute).
+* Try to be semantic despite the limitations of tags. Use double <br> as paragraphs
+* To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>
+`;
+
 /**
  * Shared Zod schema for content operation fields
  * These fields can be composed into tool-specific schemas
@@ -14,7 +23,7 @@ export const ContentOperationFields = {
     .string()
     .optional()
     .describe(
-      `If provided, replaces entire content. Cannot be used with content_append, content_prepend, or search_replace. HTML supported. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>.`,
+      `If provided, replaces entire HTML content. Cannot be used with content_append, content_prepend, or search_replace.`,
     ),
   content_append: z
     .string()
@@ -32,7 +41,9 @@ export const ContentOperationFields = {
     .array(
       z.object({
         find: z.string().describe("Text to search for"),
-        replace: z.string().describe("Text to replace it with"),
+        replace: z
+          .string()
+          .describe("Text to replace ALL the occurrences with"),
       }),
     )
     .optional()
@@ -91,6 +102,12 @@ export function applyContentOperations(
   // Apply search-replace operations first
   if (operations.search_replace) {
     for (const operation of operations.search_replace) {
+      // Check if the search string exists in the content
+      if (!finalContent.includes(operation.find)) {
+        throw new Error(
+          `Search string not found: "${operation.find}". The content does not contain this text.`,
+        );
+      }
       finalContent = finalContent.replaceAll(operation.find, operation.replace);
     }
   }
