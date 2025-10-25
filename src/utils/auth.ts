@@ -14,7 +14,8 @@ let cachedBearerToken: string | null = null;
  * - BASECAMP_CLIENT_ID
  * - BASECAMP_CLIENT_SECRET
  * - BASECAMP_REFRESH_TOKEN
- * - BASECAMP_USER_AGENT
+ * - BASECAMP_USER_AGENT (optional)
+ * - BASECAMP_ACCOUNT_ID
  *
  * @param accountId - Basecamp account ID to use for the client
  * @returns Authenticated Basecamp client instance
@@ -26,7 +27,6 @@ export async function initializeBasecampClient(): Promise<Client> {
     "BASECAMP_CLIENT_ID",
     "BASECAMP_CLIENT_SECRET",
     "BASECAMP_REFRESH_TOKEN",
-    "BASECAMP_USER_AGENT",
     "BASECAMP_ACCOUNT_ID",
   ];
 
@@ -34,7 +34,7 @@ export async function initializeBasecampClient(): Promise<Client> {
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(", ")}. ` +
-        `Please set these in your environment or .env file.`,
+      `Please set these in your environment or .env file.`,
     );
   }
 
@@ -50,7 +50,7 @@ export async function initializeBasecampClient(): Promise<Client> {
     } catch (error) {
       throw new Error(
         `Failed to obtain Basecamp access token: ${error instanceof Error ? error.message : String(error)}. ` +
-          `Check your BASECAMP_CLIENT_ID, BASECAMP_CLIENT_SECRET, and BASECAMP_REFRESH_TOKEN are correct.`,
+        `Check your BASECAMP_CLIENT_ID, BASECAMP_CLIENT_SECRET, and BASECAMP_REFRESH_TOKEN are correct.`,
       );
     }
   }
