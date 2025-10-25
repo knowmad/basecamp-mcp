@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<evaluation>
+  <!--
+    Basecamp MCP Server Evaluations
+
+    These questions test the MCP server's ability to:
+    - List and retrieve messages
+    - List and count comments
+    - Query todos with filtering
+    - Navigate todo lists and their contents
+    - Parse and extract information from message content
+
+    Test data was created in project ID 44502442 ("XXX")
+    Account ID: 5656352
+  -->
+
+  <qa_pair>
+    <question>In the "Security Fixes" todo list in project 44502442, find the todo about SSL certificates. What is the complete status of this todo - is it completed or incomplete?</question>
+    <answer>completed</answer>
+  </qa_pair>
+</evaluation>
