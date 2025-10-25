@@ -34,7 +34,7 @@ export async function initializeBasecampClient(): Promise<Client> {
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(", ")}. ` +
-      `Please set these in your environment or .env file.`,
+        `Please set these in your environment or .env file.`,
     );
   }
 
@@ -50,7 +50,7 @@ export async function initializeBasecampClient(): Promise<Client> {
     } catch (error) {
       throw new Error(
         `Failed to obtain Basecamp access token: ${error instanceof Error ? error.message : String(error)}. ` +
-        `Check your BASECAMP_CLIENT_ID, BASECAMP_CLIENT_SECRET, and BASECAMP_REFRESH_TOKEN are correct.`,
+          `Check your BASECAMP_CLIENT_ID, BASECAMP_CLIENT_SECRET, and BASECAMP_REFRESH_TOKEN are correct.`,
       );
     }
   }

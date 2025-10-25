@@ -14,7 +14,7 @@ export const ContentOperationFields = {
     .string()
     .optional()
     .describe(
-      "New content (HTML supported). If provided, replaces entire content. Cannot be used with content_append, content_prepend, or search_replace.",
+      `If provided, replaces entire content. Cannot be used with content_append, content_prepend, or search_replace. HTML supported. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>.`,
     ),
   content_append: z
     .string()

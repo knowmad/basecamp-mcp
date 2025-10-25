@@ -60,6 +60,7 @@ export function registerMessageTools(server: McpServer): void {
                   subject: msg.title,
                   content: msg.content || "",
                   author: serializePerson(msg.creator),
+                  message_type_id: msg.category?.id,
                   created_at: msg.created_at,
                   updated_at: msg.updated_at,
                   url: msg.app_url,
@@ -133,7 +134,63 @@ export function registerMessageTools(server: McpServer): void {
                   id: m.id,
                   title: m.title,
                   creator: serializePerson(m.creator),
+                  message_type_id: m.category?.id,
                   created_at: m.created_at,
+                })),
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_list_message_types
+  server.registerTool(
+    "basecamp_list_message_types",
+    {
+      title: "List Basecamp Message Types",
+      description: `List available message types/categories for a Basecamp project`,
+      inputSchema: {
+        bucket_id: BasecampIdSchema.describe("Project/bucket ID"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+        const response = await client.messageTypes.list({
+          params: {
+            bucketId: params.bucket_id,
+          },
+        });
+
+        if (response.status !== 200 || !response.body) {
+          throw new Error(`Failed to fetch message types: ${response.status}`);
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                response.body.map((mt) => ({
+                  id: mt.id,
+                  name: mt.name,
+                  icon: mt.icon,
+                  created_at: mt.created_at,
+                  updated_at: mt.updated_at,
                 })),
                 null,
                 2,
@@ -162,7 +219,12 @@ export function registerMessageTools(server: McpServer): void {
         content: z
           .string()
           .optional()
-          .describe("Message content (HTML supported)"),
+          .describe(
+            `Message content. HTML supported. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
+          ),
+        message_type_id: BasecampIdSchema.optional().describe(
+          "Optional message type/category ID",
+        ),
         status: z
           .enum(["active", "draft"])
           .default("active")
@@ -186,6 +248,7 @@ export function registerMessageTools(server: McpServer): void {
           body: {
             subject: params.subject,
             content: params.content,
+            category_id: params.message_type_id,
             status: params.status,
           },
         });
@@ -224,6 +287,9 @@ export function registerMessageTools(server: McpServer): void {
           .max(500)
           .optional()
           .describe("New message subject"),
+        message_type_id: BasecampIdSchema.optional().describe(
+          "Optional message type/category ID",
+        ),
         ...ContentOperationFields,
       },
       annotations: {
@@ -236,7 +302,7 @@ export function registerMessageTools(server: McpServer): void {
     async (params) => {
       try {
         // Validate at least one operation is provided
-        validateContentOperations(params, ["subject"]);
+        validateContentOperations(params, ["subject", "message_type_id"]);
 
         const client = await initializeBasecampClient();
         let finalContent: string | undefined;
@@ -276,6 +342,9 @@ export function registerMessageTools(server: McpServer): void {
           body: {
             ...(params.subject ? { subject: params.subject } : {}),
             ...(finalContent !== undefined ? { content: finalContent } : {}),
+            ...(params.message_type_id
+              ? { category_id: params.message_type_id }
+              : {}),
           },
         });
 

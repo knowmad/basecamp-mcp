@@ -8,6 +8,7 @@
 interface BasecampPerson {
   id: number;
   name: string;
+  attachable_sgid: string;
 }
 
 /**
@@ -16,6 +17,7 @@ interface BasecampPerson {
 export interface SerializedPerson {
   id: number;
   name: string;
+  attachable_sgid: string;
 }
 
 /**
@@ -33,5 +35,6 @@ export function serializePerson(
   return {
     id: person.id,
     name: person.name,
+    attachable_sgid: person.attachable_sgid,
   };
 }

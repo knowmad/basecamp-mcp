@@ -85,7 +85,12 @@ export function registerCommentTools(server: McpServer): void {
       inputSchema: {
         bucket_id: BasecampIdSchema,
         recording_id: BasecampIdSchema,
-        content: z.string().min(1).describe("Comment content (HTML supported)"),
+        content: z
+          .string()
+          .min(1)
+          .describe(
+            `Comment content. HTML supported. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
+          ),
       },
       annotations: {
         readOnlyHint: false,
