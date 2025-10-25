@@ -57,7 +57,32 @@ const UpdateMessagePatchSchema = z
     content: z
       .string()
       .optional()
-      .describe("New message content (HTML supported)"),
+      .describe(
+        "New message content (HTML supported). If provided, replaces entire content. Cannot be used with content_append, content_prepend, or search_replace.",
+      ),
+    content_append: z
+      .string()
+      .optional()
+      .describe(
+        "Text to append to the end of current content. Cannot be used with content.",
+      ),
+    content_prepend: z
+      .string()
+      .optional()
+      .describe(
+        "Text to prepend to the beginning of current content. Cannot be used with content.",
+      ),
+    search_replace: z
+      .array(
+        z.object({
+          find: z.string().describe("Text to search for"),
+          replace: z.string().describe("Text to replace it with"),
+        }),
+      )
+      .optional()
+      .describe(
+        "Array of search-replace operations to apply to current content. Cannot be used with content.",
+      ),
   })
   .strict();
 
@@ -226,7 +251,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_update_message_patch",
     {
       title: "Update Basecamp Message",
-      description: `Update a message. At least one field (subject or content) must be provided. Returns updated message.`,
+      description: `Update a message. At least one field (subject, content, or partial content operations) must be provided. Returns updated message.`,
       inputSchema: UpdateMessagePatchSchema.shape,
       annotations: {
         readOnlyHint: false,
@@ -237,20 +262,72 @@ export function registerMessageTools(server: McpServer): void {
     },
     async (params) => {
       try {
-        if (!params.subject && !params.content) {
+        const hasPartialOps =
+          params.content_append ||
+          params.content_prepend ||
+          params.search_replace;
+
+        // Validate mutual exclusivity
+        if (params.content && hasPartialOps) {
           throw new Error(
-            "At least one field (subject or content) must be provided",
+            "Cannot use 'content' with partial operations (content_append, content_prepend, search_replace). Use either full replacement or partial operations, not both.",
+          );
+        }
+
+        // Validate at least one operation is provided
+        if (!params.subject && !params.content && !hasPartialOps) {
+          throw new Error(
+            "At least one field (subject, content, or partial operations) must be provided",
           );
         }
 
         const client = await initializeBasecampClient();
+        let finalContent = params.content;
+
+        // Handle partial operations
+        if (hasPartialOps) {
+          // Fetch current message
+          const currentResponse = await client.messages.get({
+            params: {
+              bucketId: params.bucket_id,
+              messageId: params.message_id,
+            },
+          });
+
+          if (currentResponse.status !== 200 || !currentResponse.body) {
+            throw new Error(
+              `Failed to fetch current message for partial update: ${currentResponse.status}`,
+            );
+          }
+
+          finalContent = currentResponse.body.content || "";
+
+          // Apply search-replace operations first
+          if (params.search_replace) {
+            for (const operation of params.search_replace) {
+              finalContent = finalContent.replaceAll(
+                operation.find,
+                operation.replace,
+              );
+            }
+          }
+
+          // Apply prepend
+          if (params.content_prepend) {
+            finalContent = params.content_prepend + finalContent;
+          }
+
+          // Apply append
+          if (params.content_append) {
+            finalContent = finalContent + params.content_append;
+          }
+        }
+
         const response = await client.messages.update({
           params: { bucketId: params.bucket_id, messageId: params.message_id },
           body: {
             ...(params.subject ? { subject: params.subject } : {}),
-            ...(params.content !== undefined
-              ? { content: params.content }
-              : {}),
+            ...(finalContent !== undefined ? { content: finalContent } : {}),
           },
         });
 
