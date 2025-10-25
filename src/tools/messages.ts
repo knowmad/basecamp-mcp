@@ -9,6 +9,11 @@ import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
+import {
+  applyContentOperations,
+  ContentOperationFields,
+  validateContentOperations,
+} from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
 // Get message schema
@@ -54,35 +59,7 @@ const UpdateMessagePatchSchema = z
       .max(500)
       .optional()
       .describe("New message subject"),
-    content: z
-      .string()
-      .optional()
-      .describe(
-        "New message content (HTML supported). If provided, replaces entire content. Cannot be used with content_append, content_prepend, or search_replace.",
-      ),
-    content_append: z
-      .string()
-      .optional()
-      .describe(
-        "Text to append to the end of current content. Cannot be used with content.",
-      ),
-    content_prepend: z
-      .string()
-      .optional()
-      .describe(
-        "Text to prepend to the beginning of current content. Cannot be used with content.",
-      ),
-    search_replace: z
-      .array(
-        z.object({
-          find: z.string().describe("Text to search for"),
-          replace: z.string().describe("Text to replace it with"),
-        }),
-      )
-      .optional()
-      .describe(
-        "Array of search-replace operations to apply to current content. Cannot be used with content.",
-      ),
+    ...ContentOperationFields,
   })
   .strict();
 
@@ -248,7 +225,7 @@ export function registerMessageTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "basecamp_update_message_patch",
+    "basecamp_update_message",
     {
       title: "Update Basecamp Message",
       description: `Update a message. At least one field (subject, content, or partial content operations) must be provided. Returns updated message.`,
@@ -262,64 +239,39 @@ export function registerMessageTools(server: McpServer): void {
     },
     async (params) => {
       try {
+        // Validate at least one operation is provided
+        validateContentOperations(params, ["subject"]);
+
+        const client = await initializeBasecampClient();
+        let finalContent: string | undefined;
+
+        // Check if we need to fetch current content for partial operations
         const hasPartialOps =
           params.content_append ||
           params.content_prepend ||
           params.search_replace;
 
-        // Validate mutual exclusivity
-        if (params.content && hasPartialOps) {
-          throw new Error(
-            "Cannot use 'content' with partial operations (content_append, content_prepend, search_replace). Use either full replacement or partial operations, not both.",
-          );
-        }
+        if (hasPartialOps || params.content !== undefined) {
+          // Fetch current message if needed for partial operations
+          if (hasPartialOps) {
+            const currentResponse = await client.messages.get({
+              params: {
+                bucketId: params.bucket_id,
+                messageId: params.message_id,
+              },
+            });
 
-        // Validate at least one operation is provided
-        if (!params.subject && !params.content && !hasPartialOps) {
-          throw new Error(
-            "At least one field (subject, content, or partial operations) must be provided",
-          );
-        }
-
-        const client = await initializeBasecampClient();
-        let finalContent = params.content;
-
-        // Handle partial operations
-        if (hasPartialOps) {
-          // Fetch current message
-          const currentResponse = await client.messages.get({
-            params: {
-              bucketId: params.bucket_id,
-              messageId: params.message_id,
-            },
-          });
-
-          if (currentResponse.status !== 200 || !currentResponse.body) {
-            throw new Error(
-              `Failed to fetch current message for partial update: ${currentResponse.status}`,
-            );
-          }
-
-          finalContent = currentResponse.body.content || "";
-
-          // Apply search-replace operations first
-          if (params.search_replace) {
-            for (const operation of params.search_replace) {
-              finalContent = finalContent.replaceAll(
-                operation.find,
-                operation.replace,
+            if (currentResponse.status !== 200 || !currentResponse.body) {
+              throw new Error(
+                `Failed to fetch current message for partial update: ${currentResponse.status}`,
               );
             }
-          }
 
-          // Apply prepend
-          if (params.content_prepend) {
-            finalContent = params.content_prepend + finalContent;
-          }
-
-          // Apply append
-          if (params.content_append) {
-            finalContent = finalContent + params.content_append;
+            const currentContent = currentResponse.body.content || "";
+            finalContent = applyContentOperations(currentContent, params);
+          } else {
+            // Full content replacement
+            finalContent = params.content;
           }
         }
 
