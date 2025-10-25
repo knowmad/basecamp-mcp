@@ -18,4 +18,6 @@ export const BasecampUrlSchema = z
   .string()
   .url()
   .startsWith("https://3.basecamp.com/", "Must be a valid Basecamp URL")
-  .describe("Basecamp resource URL (e.g., https://3.basecamp.com/{accountId}/buckets/{bucketId}/messages/{id})");
+  .describe(
+    "Basecamp resource URL (e.g., https://3.basecamp.com/{accountId}/buckets/{bucketId}/messages/{id})",
+  );

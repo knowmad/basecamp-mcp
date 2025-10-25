@@ -19,14 +19,13 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-
+import { registerCommentTools } from "./tools/comments.js";
+import { registerKanbanTools } from "./tools/kanban.js";
+import { registerMessageTools } from "./tools/messages.js";
+import { registerPeopleTools } from "./tools/people.js";
 // Import tool registration functions
 import { registerProjectTools } from "./tools/projects.js";
-import { registerMessageTools } from "./tools/messages.js";
 import { registerTodoTools } from "./tools/todos.js";
-import { registerCommentTools } from "./tools/comments.js";
-import { registerPeopleTools } from "./tools/people.js";
-import { registerKanbanTools } from "./tools/kanban.js";
 
 /**
  * Main server initialization and startup
@@ -43,10 +42,10 @@ async function main() {
   const missing = requiredEnvVars.filter((varName) => !process.env[varName]);
   if (missing.length > 0) {
     console.error(
-      `ERROR: Missing required environment variables: ${missing.join(", ")}`
+      `ERROR: Missing required environment variables: ${missing.join(", ")}`,
     );
     console.error(
-      "Please set these in your environment or .env file before starting the server."
+      "Please set these in your environment or .env file before starting the server.",
     );
     process.exit(1);
   }

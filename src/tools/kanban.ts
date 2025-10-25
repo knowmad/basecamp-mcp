@@ -9,28 +9,29 @@ import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
-const ListCardsSchema = z.object({
+const ListCardsSchema = z
+  .object({
+    bucket_id: BasecampIdSchema,
+    column_id: BasecampIdSchema,
+  })
+  .strict();
 
-  bucket_id: BasecampIdSchema,
-  column_id: BasecampIdSchema,
+const CreateCardSchema = z
+  .object({
+    bucket_id: BasecampIdSchema,
+    column_id: BasecampIdSchema,
+    title: z.string().min(1),
+    content: z.string().optional(),
+  })
+  .strict();
 
-}).strict();
-
-const CreateCardSchema = z.object({
-
-  bucket_id: BasecampIdSchema,
-  column_id: BasecampIdSchema,
-  title: z.string().min(1),
-  content: z.string().optional(),
-
-}).strict();
-
-const CreateStepSchema = z.object({
-
-  bucket_id: BasecampIdSchema,
-  card_id: BasecampIdSchema,
-  title: z.string().min(1),
-}).strict();
+const CreateStepSchema = z
+  .object({
+    bucket_id: BasecampIdSchema,
+    card_id: BasecampIdSchema,
+    title: z.string().min(1),
+  })
+  .strict();
 
 export function registerKanbanTools(server: McpServer): void {
   server.registerTool(
@@ -39,9 +40,14 @@ export function registerKanbanTools(server: McpServer): void {
       title: "List Kanban Cards",
       description: "List cards in a kanban column.",
       inputSchema: ListCardsSchema.shape,
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
-    async (params: z.infer<typeof ListCardsSchema>) => {
+    async (params) => {
       try {
         const client = await initializeBasecampClient();
         const cards = await asyncPagedToArray({
@@ -49,19 +55,31 @@ export function registerKanbanTools(server: McpServer): void {
           request: {
             params: { bucketId: params.bucket_id, columnId: params.column_id },
             query: {},
-          }
+          },
         });
 
         return {
-          content: [{
-            type: "text",
-            text: JSON.stringify(cards.map(c => ({ id: c.id, title: c.title, due_on: c.due_on })), null, 2),
-          }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                cards.map((c) => ({
+                  id: c.id,
+                  title: c.title,
+                  due_on: c.due_on,
+                })),
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
-        return { content: [{ type: "text", text: handleBasecampError(error) }] };
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
       }
-    }
+    },
   );
 
   server.registerTool(
@@ -70,9 +88,14 @@ export function registerKanbanTools(server: McpServer): void {
       title: "Create Kanban Card",
       description: "Create a new card in a kanban column.",
       inputSchema: CreateCardSchema.shape,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
-    async (params: z.infer<typeof CreateCardSchema>) => {
+    async (params) => {
       try {
         const client = await initializeBasecampClient();
         const response = await client.cardTableCards.create({
@@ -85,12 +108,19 @@ export function registerKanbanTools(server: McpServer): void {
         }
 
         return {
-          content: [{ type: "text", text: `Card created!\n\nID: ${response.body.id}\nTitle: ${response.body.title}` }],
+          content: [
+            {
+              type: "text",
+              text: `Card created!\n\nID: ${response.body.id}\nTitle: ${response.body.title}`,
+            },
+          ],
         };
       } catch (error) {
-        return { content: [{ type: "text", text: handleBasecampError(error) }] };
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
       }
-    }
+    },
   );
 
   server.registerTool(
@@ -99,9 +129,14 @@ export function registerKanbanTools(server: McpServer): void {
       title: "Create Kanban Step",
       description: "Add a checklist step to a kanban card.",
       inputSchema: CreateStepSchema.shape,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
-    async (params: z.infer<typeof CreateStepSchema>) => {
+    async (params) => {
       try {
         const client = await initializeBasecampClient();
         const response = await client.cardTableSteps.create({
@@ -114,11 +149,18 @@ export function registerKanbanTools(server: McpServer): void {
         }
 
         return {
-          content: [{ type: "text", text: `Step created!\n\nID: ${response.body.id}\nTitle: ${response.body.title}` }],
+          content: [
+            {
+              type: "text",
+              text: `Step created!\n\nID: ${response.body.id}\nTitle: ${response.body.title}`,
+            },
+          ],
         };
       } catch (error) {
-        return { content: [{ type: "text", text: handleBasecampError(error) }] };
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
       }
-    }
+    },
   );
 }

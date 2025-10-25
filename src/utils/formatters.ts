@@ -40,7 +40,7 @@ export function formatDate(dateStr: string | undefined | null): string {
 export function truncateIfNeeded<T>(
   response: string,
   data: T[],
-  generateResponse: (truncatedData: T[]) => string
+  generateResponse: (truncatedData: T[]) => string,
 ): { text: string; truncation: TruncationInfo } {
   if (response.length <= CHARACTER_LIMIT) {
     return {
@@ -81,7 +81,7 @@ export function truncateIfNeeded<T>(
  */
 export function addTruncationToJson(
   jsonData: Record<string, unknown>,
-  truncation: TruncationInfo
+  truncation: TruncationInfo,
 ): string {
   if (truncation.truncated) {
     return JSON.stringify({ ...jsonData, ...truncation }, null, 2);
@@ -98,7 +98,7 @@ export function addTruncationToJson(
  */
 export function addTruncationToMarkdown(
   markdown: string,
-  truncation: TruncationInfo
+  truncation: TruncationInfo,
 ): string {
   if (truncation.truncated && truncation.truncation_message) {
     return `${markdown}\n\n---\n\n**⚠️ ${truncation.truncation_message}**`;

@@ -112,9 +112,9 @@ function extractErrorDetails(error: unknown): string {
     }
 
     if ("errors" in body && Array.isArray(body.errors)) {
-      const errorMessages = body.errors.map((e) =>
-        typeof e === "string" ? e : JSON.stringify(e)
-      ).join(", ");
+      const errorMessages = body.errors
+        .map((e) => (typeof e === "string" ? e : JSON.stringify(e)))
+        .join(", ");
       return `Details: ${errorMessages}`;
     }
   }

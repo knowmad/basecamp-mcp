@@ -12,23 +12,23 @@
  * Usage: ANTHROPIC_API_KEY=your_key node run-evaluation.js
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { spawn } from 'child_process';
-import dotenv from 'dotenv';
-import fs from 'fs';
-import { parseStringPromise } from 'xml2js';
+import Anthropic from "@anthropic-ai/sdk";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { spawn } from "child_process";
+import dotenv from "dotenv";
+import fs from "fs";
+import { parseStringPromise } from "xml2js";
 
 // Load .env file
 dotenv.config();
 
-const EVALUATIONS_FILE = 'evaluations.xml';
-const MCP_SERVER_COMMAND = 'node';
-const MCP_SERVER_ARGS = ['dist/index.js'];
+const EVALUATIONS_FILE = "evaluations.xml";
+const MCP_SERVER_COMMAND = "node";
+const MCP_SERVER_ARGS = ["dist/index.js"];
 
 async function loadEvaluations() {
-  const xmlContent = fs.readFileSync(EVALUATIONS_FILE, 'utf8');
+  const xmlContent = fs.readFileSync(EVALUATIONS_FILE, "utf8");
   const result = await parseStringPromise(xmlContent);
   return result.evaluation.qa_pair.map((pair) => ({
     question: pair.question[0],
@@ -37,10 +37,10 @@ async function loadEvaluations() {
 }
 
 async function startMCPServer() {
-  console.log('Starting MCP server...');
+  console.log("Starting MCP server...");
 
   const serverProcess = spawn(MCP_SERVER_COMMAND, MCP_SERVER_ARGS, {
-    stdio: ['pipe', 'pipe', 'inherit'],
+    stdio: ["pipe", "pipe", "inherit"],
     env: { ...process.env },
   });
 
@@ -52,16 +52,16 @@ async function startMCPServer() {
 
   const client = new Client(
     {
-      name: 'evaluation-client',
-      version: '1.0.0',
+      name: "evaluation-client",
+      version: "1.0.0",
     },
     {
       capabilities: {},
-    }
+    },
   );
 
   await client.connect(transport);
-  console.log('✓ Connected to MCP server\n');
+  console.log("✓ Connected to MCP server\n");
 
   return { client, serverProcess };
 }
@@ -79,7 +79,7 @@ async function askQuestionWithMCP(anthropic, mcpClient, question) {
 
   const messages = [
     {
-      role: 'user',
+      role: "user",
       content: `You are an AI assistant with access to Basecamp MCP tools. Answer this question using ONLY the provided tools. Be concise and provide just the answer without explanation.\n\nQuestion: ${question}\n\nProvide ONLY the direct answer (a number, text, or status). Do not include any explanation or additional text.`,
     },
   ];
@@ -93,25 +93,25 @@ async function askQuestionWithMCP(anthropic, mcpClient, question) {
     console.log(`    Turn ${turnCount}...`);
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 4096,
       tools,
       messages,
     });
 
     // Check if we got a final answer
-    const textContent = response.content.find((c) => c.type === 'text');
-    if (response.stop_reason === 'end_turn' && textContent) {
+    const textContent = response.content.find((c) => c.type === "text");
+    if (response.stop_reason === "end_turn" && textContent) {
       finalAnswer = textContent.text.trim();
       break;
     }
 
     // Process tool uses
-    const toolUses = response.content.filter((c) => c.type === 'tool_use');
+    const toolUses = response.content.filter((c) => c.type === "tool_use");
 
     if (toolUses.length === 0) {
       // No tools used and no final answer - something went wrong
-      finalAnswer = textContent?.text.trim() || 'ERROR: No response';
+      finalAnswer = textContent?.text.trim() || "ERROR: No response";
       break;
     }
 
@@ -119,7 +119,7 @@ async function askQuestionWithMCP(anthropic, mcpClient, question) {
     const toolResults = [];
     for (const toolUse of toolUses) {
       console.log(
-        `      → Calling ${toolUse.name} — ${JSON.stringify(toolUse.input)}`
+        `      → Calling ${toolUse.name} — ${JSON.stringify(toolUse.input)}`,
       );
 
       try {
@@ -131,15 +131,15 @@ async function askQuestionWithMCP(anthropic, mcpClient, question) {
         console.log(result);
 
         toolResults.push({
-          type: 'tool_result',
+          type: "tool_result",
           tool_use_id: toolUse.id,
           content: result.content
             .map((c) => c.text || JSON.stringify(c))
-            .join('\n'),
+            .join("\n"),
         });
       } catch (error) {
         toolResults.push({
-          type: 'tool_result',
+          type: "tool_result",
           tool_use_id: toolUse.id,
           content: `Error: ${error.message}`,
           is_error: true,
@@ -149,24 +149,24 @@ async function askQuestionWithMCP(anthropic, mcpClient, question) {
 
     // Add assistant response and tool results to conversation
     messages.push({
-      role: 'assistant',
+      role: "assistant",
       content: response.content,
     });
 
     messages.push({
-      role: 'user',
+      role: "user",
       content: toolResults,
     });
   }
 
-  return finalAnswer || 'ERROR: Max turns reached';
+  return finalAnswer || "ERROR: Max turns reached";
 }
 
 function normalizeAnswer(answer) {
   return String(answer)
     .toLowerCase()
     .trim()
-    .replace(/[.,;!?]/g, '');
+    .replace(/[.,;!?]/g, "");
 }
 
 function checkAnswer(actual, expected) {
@@ -190,11 +190,11 @@ function checkAnswer(actual, expected) {
 }
 
 async function runEvaluations() {
-  console.log('=== Basecamp MCP Server Evaluation ===\n');
+  console.log("=== Basecamp MCP Server Evaluation ===\n");
 
   // Check for Anthropic API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('ERROR: ANTHROPIC_API_KEY environment variable not set');
+    console.error("ERROR: ANTHROPIC_API_KEY environment variable not set");
     process.exit(1);
   }
 
@@ -203,7 +203,7 @@ async function runEvaluations() {
   });
 
   // Load evaluation questions
-  console.log('Loading evaluations...');
+  console.log("Loading evaluations...");
   const evaluations = await loadEvaluations();
   console.log(`✓ Loaded ${evaluations.length} evaluation questions\n`);
 
@@ -224,12 +224,12 @@ async function runEvaluations() {
         const actualAnswer = await askQuestionWithMCP(
           anthropic,
           mcpClient,
-          question
+          question,
         );
         console.log(`  Actual: ${actualAnswer}`);
 
         const passed = checkAnswer(actualAnswer, expectedAnswer);
-        console.log(`  Result: ${passed ? '✓ PASS' : '✗ FAIL'}`);
+        console.log(`  Result: ${passed ? "✓ PASS" : "✗ FAIL"}`);
 
         results.push({
           question,
@@ -251,17 +251,17 @@ async function runEvaluations() {
     }
 
     // Print summary
-    console.log('\n\n=== Evaluation Results ===\n');
+    console.log("\n\n=== Evaluation Results ===\n");
     const passCount = results.filter((r) => r.passed).length;
     const totalCount = results.length;
     const passRate = ((passCount / totalCount) * 100).toFixed(1);
 
     console.log(`Passed: ${passCount}/${totalCount} (${passRate}%)\n`);
 
-    console.log('Details:');
+    console.log("Details:");
     results.forEach((result, i) => {
-      const status = result.passed ? '✓' : '✗';
-      console.log(`  ${status} Q${i + 1}: ${result.passed ? 'PASS' : 'FAIL'}`);
+      const status = result.passed ? "✓" : "✗";
+      console.log(`  ${status} Q${i + 1}: ${result.passed ? "PASS" : "FAIL"}`);
       if (!result.passed) {
         console.log(`      Expected: ${result.expectedAnswer}`);
         console.log(`      Got: ${result.actualAnswer}`);
@@ -270,13 +270,13 @@ async function runEvaluations() {
 
     // Save detailed results
     fs.writeFileSync(
-      'evaluation-results.json',
-      JSON.stringify(results, null, 2)
+      "evaluation-results.json",
+      JSON.stringify(results, null, 2),
     );
-    console.log('\n✓ Detailed results saved to evaluation-results.json');
+    console.log("\n✓ Detailed results saved to evaluation-results.json");
   } finally {
     // Cleanup
-    console.log('\nShutting down MCP server...');
+    console.log("\nShutting down MCP server...");
     serverProcess.kill();
   }
 
@@ -284,6 +284,6 @@ async function runEvaluations() {
 }
 
 runEvaluations().catch((error) => {
-  console.error('Fatal error:', error);
+  console.error("Fatal error:", error);
   process.exit(1);
 });

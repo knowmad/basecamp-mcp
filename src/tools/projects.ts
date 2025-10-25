@@ -11,21 +11,12 @@ import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
-// Zod schema for list projects parameters
-const ListProjectsSchema = z.object({
-  account_id: BasecampIdSchema.describe("Basecamp account ID"),
-}).strict();
-
-type ListProjectsParams = z.infer<typeof ListProjectsSchema>;
-
 // Zod schema for get project parameters
-const GetProjectSchema = z.object({
-  account_id: BasecampIdSchema.describe("Basecamp account ID"),
-  project_id: BasecampIdSchema.describe("Project ID to retrieve"),
-
-}).strict();
-
-type GetProjectParams = z.infer<typeof GetProjectSchema>;
+const GetProjectSchema = z
+  .object({
+    project_id: BasecampIdSchema.describe("Project ID to retrieve"),
+  })
+  .strict();
 
 /**
  * Register all project-related tools with the MCP server
@@ -37,7 +28,6 @@ export function registerProjectTools(server: McpServer): void {
     {
       title: "List Basecamp Projects",
       description: `List all projects visible to the authenticated user in a Basecamp account. This tool returns active projects with their IDs, names, descriptions, and metadata. Use this to discover project/bucket IDs needed for accessing messages, todos, and other resources.`,
-      inputSchema: ListProjectsSchema.shape,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -45,36 +35,43 @@ export function registerProjectTools(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async (params: ListProjectsParams) => {
+    async () => {
       try {
         const client = await initializeBasecampClient();
 
         // Fetch projects with pagination
         const projects = await asyncPagedToArray({
-          fetchPage: client.projects.list, request: {
+          fetchPage: client.projects.list,
+          request: {
             query: {},
-          }
+          },
         });
 
-
         return {
-          content: [{
-            type: "text", text: JSON.stringify(projects.map((p) => ({
-              id: p.id,
-              name: p.name,
-              description: p.description || "",
-              created_at: p.created_at,
-              updated_at: p.updated_at,
-              url: p.app_url,
-            })), null, 2)
-          }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                projects.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  description: p.description || "",
+                  created_at: p.created_at,
+                  updated_at: p.updated_at,
+                  url: p.app_url,
+                })),
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
           content: [{ type: "text", text: handleBasecampError(error) }],
         };
       }
-    }
+    },
   );
 
   // Tool: basecamp_get_project
@@ -95,7 +92,7 @@ Examples:
         openWorldHint: true,
       },
     },
-    async (params: GetProjectParams) => {
+    async (params) => {
       try {
         const client = await initializeBasecampClient();
 
@@ -127,6 +124,6 @@ Examples:
           content: [{ type: "text", text: handleBasecampError(error) }],
         };
       }
-    }
+    },
   );
 }
