@@ -14,6 +14,7 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import { serializePerson } from "../utils/serializers.js";
 
 export function registerCommentTools(server: McpServer): void {
   server.registerTool(
@@ -57,7 +58,7 @@ export function registerCommentTools(server: McpServer): void {
               text: JSON.stringify(
                 comments.map((c) => ({
                   id: c.id,
-                  author: c.creator?.name,
+                  creator: serializePerson(c.creator),
                   content: c.content,
                   created_at: c.created_at,
                 })),
@@ -129,7 +130,7 @@ export function registerCommentTools(server: McpServer): void {
     {
       title: "Update Basecamp Comment",
       description:
-        "Update a comment. At least one content field (content, or partial content operations) must be provided. Returns updated comment.",
+        "Update a comment. At least one content field (content, or partial content operations) must be provided. Use partial content operations when possible to save on token usage. Returns updated comment.",
       inputSchema: {
         bucket_id: BasecampIdSchema,
         comment_id: BasecampIdSchema,

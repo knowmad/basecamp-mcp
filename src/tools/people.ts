@@ -10,6 +10,56 @@ import { handleBasecampError } from "../utils/errorHandlers.js";
 
 export function registerPeopleTools(server: McpServer): void {
   server.registerTool(
+    "basecamp_get_me",
+    {
+      title: "Get My Basecamp Profile",
+      description:
+        "Get personal information for the authenticated user (me).",
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async () => {
+      try {
+        const client = await initializeBasecampClient();
+
+        const response = await client.people.me({});
+
+        if (response.status !== 200 || !response.body) {
+          throw new Error("Failed to get personal info");
+        }
+
+        const me = response.body;
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  id: me.id,
+                  name: me.name,
+                  email: me.email_address,
+                  title: me.title,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
     "basecamp_list_people",
     {
       title: "List Basecamp People",

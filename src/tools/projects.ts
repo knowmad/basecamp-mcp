@@ -21,6 +21,14 @@ export function registerProjectTools(server: McpServer): void {
     {
       title: "List Basecamp Projects",
       description: `List all projects visible to the authenticated user in a Basecamp account. This tool returns active projects with their IDs, names, descriptions, and metadata. Use this to discover project/bucket IDs needed for accessing messages, todos, and other resources.`,
+      inputSchema: {
+        filter: z
+          .string()
+          .optional()
+          .describe(
+            "Optional regular expression to filter projects by name or description",
+          ),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -28,7 +36,7 @@ export function registerProjectTools(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async () => {
+    async (params) => {
       try {
         const client = await initializeBasecampClient();
 
@@ -40,12 +48,21 @@ export function registerProjectTools(server: McpServer): void {
           },
         });
 
+        // Apply filter if provided
+        let filteredProjects = projects;
+        if (params.filter) {
+          const regex = new RegExp(params.filter, "i");
+          filteredProjects = projects.filter(
+            (p) => regex.test(p.name) || regex.test(p.description || ""),
+          );
+        }
+
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify(
-                projects.map((p) => ({
+                filteredProjects.map((p) => ({
                   id: p.id,
                   name: p.name,
                   description: p.description || "",

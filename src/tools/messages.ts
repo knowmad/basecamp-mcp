@@ -15,6 +15,7 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import { serializePerson } from "../utils/serializers.js";
 
 export function registerMessageTools(server: McpServer): void {
   // basecamp_get_message
@@ -58,10 +59,7 @@ export function registerMessageTools(server: McpServer): void {
                   id: msg.id,
                   subject: msg.title,
                   content: msg.content || "",
-                  author: {
-                    id: msg.creator?.id,
-                    name: msg.creator?.name || "Unknown",
-                  },
+                  author: serializePerson(msg.creator),
                   created_at: msg.created_at,
                   updated_at: msg.updated_at,
                   url: msg.app_url,
@@ -89,6 +87,12 @@ export function registerMessageTools(server: McpServer): void {
       inputSchema: {
         bucket_id: BasecampIdSchema.describe("Project/bucket ID"),
         message_board_id: BasecampIdSchema.describe("Message board ID"),
+        filter: z
+          .string()
+          .optional()
+          .describe(
+            "Optional regular expression to filter messages by title or content",
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -111,15 +115,24 @@ export function registerMessageTools(server: McpServer): void {
           },
         });
 
+        // Apply filter if provided
+        let filteredMessages = messages;
+        if (params.filter) {
+          const regex = new RegExp(params.filter, "i");
+          filteredMessages = messages.filter(
+            (m) => regex.test(m.title) || regex.test(m.content || ""),
+          );
+        }
+
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify(
-                messages.map((m) => ({
+                filteredMessages.map((m) => ({
                   id: m.id,
                   title: m.title,
-                  creator: m.creator?.name || "Unknown",
+                  creator: serializePerson(m.creator),
                   created_at: m.created_at,
                 })),
                 null,
@@ -201,7 +214,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_update_message",
     {
       title: "Update Basecamp Message",
-      description: `Update a message. At least one field (subject, content, or partial content operations) must be provided. Returns updated message.`,
+      description: `Update a message. At least one field (subject, content, or partial content operations) must be provided. Use partial content operations when possible to save on token usage. Returns updated message.`,
       inputSchema: {
         bucket_id: BasecampIdSchema,
         message_id: BasecampIdSchema,

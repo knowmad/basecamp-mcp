@@ -13,6 +13,7 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import { serializePerson } from "../utils/serializers.js";
 
 export function registerKanbanTools(server: McpServer): void {
   server.registerTool(
@@ -113,12 +114,12 @@ export function registerKanbanTools(server: McpServer): void {
                   url: c.app_url,
                   comments_count: c.comments_count,
                   created_at: c.created_at,
-                  creator: c.creator?.name || "Unknown",
-                  assignees: c.assignees.map(a => a.name),
-                  steps: c.steps?.map(s => ({
+                  creator: serializePerson(c.creator),
+                  assignees: c.assignees.map(serializePerson),
+                  steps: c.steps?.map((s) => ({
                     title: s.title,
                     completed: s.completed,
-                  }))
+                  })),
                 })),
                 null,
                 2,
@@ -180,18 +181,8 @@ export function registerKanbanTools(server: McpServer): void {
                   comments_count: card.comments_count,
                   created_at: card.created_at,
                   updated_at: card.updated_at,
-                  creator: card.creator
-                    ? {
-                      id: card.creator.id,
-                      name: card.creator.name,
-                      email: card.creator.email_address,
-                    }
-                    : null,
-                  assignees: card.assignees.map((a) => ({
-                    id: a.id,
-                    name: a.name,
-                    email: a.email_address,
-                  })),
+                  creator: serializePerson(card.creator),
+                  assignees: card.assignees.map(serializePerson),
                   steps: card.steps?.map((s) => ({
                     id: s.id,
                     title: s.title,
@@ -263,7 +254,7 @@ export function registerKanbanTools(server: McpServer): void {
     {
       title: "Update Kanban Card",
       description:
-        "Update a kanban card. At least one field (title, content, or partial content operations) must be provided. Returns updated card.",
+        "Update a kanban card. At least one field (title, content, or partial content operations) must be provided. Use partial content operations when possible to save on token usage. Returns updated card.",
       inputSchema: {
         bucket_id: BasecampIdSchema,
         card_id: BasecampIdSchema,
