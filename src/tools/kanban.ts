@@ -110,7 +110,94 @@ export function registerKanbanTools(server: McpServer): void {
                   id: c.id,
                   title: c.title,
                   due_on: c.due_on,
+                  url: c.app_url,
+                  comments_count: c.comments_count,
+                  created_at: c.created_at,
+                  creator: c.creator?.name || "Unknown",
+                  assignees: c.assignees.map(a => a.name),
+                  steps: c.steps?.map(s => ({
+                    title: s.title,
+                    completed: s.completed,
+                  }))
                 })),
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "basecamp_get_kanban_card",
+    {
+      title: "Get Kanban Card",
+      description: "Get all details of a specific kanban card.",
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        card_id: BasecampIdSchema,
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+        const response = await client.cardTableCards.get({
+          params: {
+            bucketId: params.bucket_id,
+            cardId: params.card_id,
+          },
+        });
+
+        if (response.status !== 200 || !response.body) {
+          throw new Error("Failed to fetch card");
+        }
+
+        const card = response.body;
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  id: card.id,
+                  title: card.title,
+                  content: card.content,
+                  due_on: card.due_on,
+                  url: card.app_url,
+                  comments_count: card.comments_count,
+                  created_at: card.created_at,
+                  updated_at: card.updated_at,
+                  creator: card.creator
+                    ? {
+                      id: card.creator.id,
+                      name: card.creator.name,
+                      email: card.creator.email_address,
+                    }
+                    : null,
+                  assignees: card.assignees.map((a) => ({
+                    id: a.id,
+                    name: a.name,
+                    email: a.email_address,
+                  })),
+                  steps: card.steps?.map((s) => ({
+                    id: s.id,
+                    title: s.title,
+                    completed: s.completed,
+                  })),
+                },
                 null,
                 2,
               ),

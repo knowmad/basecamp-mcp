@@ -119,7 +119,7 @@ export function registerMessageTools(server: McpServer): void {
                 messages.map((m) => ({
                   id: m.id,
                   title: m.title,
-                  author: m.creator?.name || "Unknown",
+                  creator: m.creator?.name || "Unknown",
                   created_at: m.created_at,
                 })),
                 null,
