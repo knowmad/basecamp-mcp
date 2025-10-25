@@ -11,13 +11,6 @@ import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
-// Zod schema for get project parameters
-const GetProjectSchema = z
-  .object({
-    project_id: BasecampIdSchema.describe("Project ID to retrieve"),
-  })
-  .strict();
-
 /**
  * Register all project-related tools with the MCP server
  */
@@ -84,7 +77,9 @@ export function registerProjectTools(server: McpServer): void {
 Examples:
   - Use when: "Get details for project 12345"
   - Use when: Need full project information including dock configuration`,
-      inputSchema: GetProjectSchema.shape,
+      inputSchema: {
+        project_id: BasecampIdSchema.describe("Project ID to retrieve"),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

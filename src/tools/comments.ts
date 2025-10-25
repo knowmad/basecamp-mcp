@@ -15,32 +15,6 @@ import {
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
-const ListCommentsSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    recording_id: BasecampIdSchema.describe(
-      "ID of the resource (message, todo, card, etc.)",
-    ),
-  })
-  .strict();
-
-const CreateCommentSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    recording_id: BasecampIdSchema,
-    content: z.string().min(1).describe("Comment content (HTML supported)"),
-  })
-  .strict();
-
-// Update comment (PATCH support - all content fields optional)
-const UpdateCommentPatchSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    comment_id: BasecampIdSchema,
-    ...ContentOperationFields,
-  })
-  .strict();
-
 export function registerCommentTools(server: McpServer): void {
   server.registerTool(
     "basecamp_list_comments",
@@ -48,7 +22,12 @@ export function registerCommentTools(server: McpServer): void {
       title: "List Basecamp Comments",
       description:
         "List comments on any Basecamp resource (message, todo, card, etc.). Works universally on all recording types.",
-      inputSchema: ListCommentsSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        recording_id: BasecampIdSchema.describe(
+          "ID of the resource (message, todo, card, etc.)",
+        ),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -102,7 +81,11 @@ export function registerCommentTools(server: McpServer): void {
       title: "Create Basecamp Comment",
       description:
         "Add a comment to any Basecamp resource (message, todo, card, etc.).",
-      inputSchema: CreateCommentSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        recording_id: BasecampIdSchema,
+        content: z.string().min(1).describe("Comment content (HTML supported)"),
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -147,7 +130,11 @@ export function registerCommentTools(server: McpServer): void {
       title: "Update Basecamp Comment",
       description:
         "Update a comment. At least one content field (content, or partial content operations) must be provided. Returns updated comment.",
-      inputSchema: UpdateCommentPatchSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        comment_id: BasecampIdSchema,
+        ...ContentOperationFields,
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,

@@ -14,59 +14,75 @@ import {
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
-const ListCardsSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    column_id: BasecampIdSchema,
-  })
-  .strict();
-
-const CreateCardSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    column_id: BasecampIdSchema,
-    title: z.string().min(1),
-    content: z.string().optional(),
-  })
-  .strict();
-
-const CreateStepSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    card_id: BasecampIdSchema,
-    title: z.string().min(1),
-  })
-  .strict();
-
-// Update card (PATCH support - all fields optional)
-const UpdateKanbanCardPatchSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    card_id: BasecampIdSchema,
-    title: z.string().min(1).optional().describe("New card title"),
-    ...ContentOperationFields,
-    due_on: z
-      .string()
-      .optional()
-      .describe("Due date (YYYY-MM-DD format) or null to clear"),
-    notify: z
-      .boolean()
-      .optional()
-      .describe("Whether to notify assignees of the update"),
-    assignee_ids: z
-      .array(z.number())
-      .optional()
-      .describe("Array of user IDs to assign to the card"),
-  })
-  .strict();
-
 export function registerKanbanTools(server: McpServer): void {
+  server.registerTool(
+    "basecamp_list_kanban_columns",
+    {
+      title: "List Kanban Columns",
+      description: "List all columns in a kanban board.",
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        card_table_id: BasecampIdSchema,
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+        const response = await client.cardTables.get({
+          params: {
+            bucketId: params.bucket_id,
+            cardTableId: params.card_table_id,
+          },
+        });
+
+        if (response.status !== 200 || !response.body) {
+          throw new Error("Failed to fetch card table");
+        }
+
+        const columns = response.body.lists || [];
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                columns.map((col) => ({
+                  id: col.id,
+                  title: col.title,
+                  position: col.position,
+                  cards_count: col.cards_count,
+                  type: col.type,
+                  description: col.description,
+                })),
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
   server.registerTool(
     "basecamp_list_kanban_cards",
     {
       title: "List Kanban Cards",
       description: "List cards in a kanban column.",
-      inputSchema: ListCardsSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        column_id: BasecampIdSchema,
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -114,7 +130,12 @@ export function registerKanbanTools(server: McpServer): void {
     {
       title: "Create Kanban Card",
       description: "Create a new card in a kanban column.",
-      inputSchema: CreateCardSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        column_id: BasecampIdSchema,
+        title: z.string().min(1),
+        content: z.string().optional(),
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -156,7 +177,24 @@ export function registerKanbanTools(server: McpServer): void {
       title: "Update Kanban Card",
       description:
         "Update a kanban card. At least one field (title, content, or partial content operations) must be provided. Returns updated card.",
-      inputSchema: UpdateKanbanCardPatchSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        card_id: BasecampIdSchema,
+        title: z.string().min(1).optional().describe("New card title"),
+        ...ContentOperationFields,
+        due_on: z
+          .string()
+          .optional()
+          .describe("Due date (YYYY-MM-DD format) or null to clear"),
+        notify: z
+          .boolean()
+          .optional()
+          .describe("Whether to notify assignees of the update"),
+        assignee_ids: z
+          .array(z.number())
+          .optional()
+          .describe("Array of user IDs to assign to the card"),
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -241,11 +279,74 @@ export function registerKanbanTools(server: McpServer): void {
   );
 
   server.registerTool(
+    "basecamp_move_kanban_card",
+    {
+      title: "Move Kanban Card",
+      description:
+        "Move a kanban card to a different column and/or position within that column.",
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        card_id: BasecampIdSchema,
+        column_id: BasecampIdSchema,
+        position: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe(
+            "Position within the destination column (zero-indexed). If not specified, card will be added to the end of the column.",
+          ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+        const response = await client.cardTableCards.move({
+          params: { bucketId: params.bucket_id, cardId: params.card_id },
+          body: {
+            column_id: params.column_id,
+            ...(params.position !== undefined
+              ? { position: params.position }
+              : {}),
+          },
+        });
+
+        if (response.status !== 204) {
+          throw new Error("Failed to move card");
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Card moved successfully to column ${params.column_id}${params.position !== undefined ? ` at position ${params.position}` : ""}!`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
     "basecamp_create_kanban_step",
     {
       title: "Create Kanban Step",
       description: "Add a checklist step to a kanban card.",
-      inputSchema: CreateStepSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        card_id: BasecampIdSchema,
+        title: z.string().min(1),
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,

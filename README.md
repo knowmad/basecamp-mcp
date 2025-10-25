@@ -79,9 +79,11 @@ npm run dev
 - `basecamp_get_person` - Get person details
 
 #### Kanban
+- `basecamp_list_kanban_columns` - List all columns in a kanban board
 - `basecamp_list_kanban_cards` - List cards in a column
 - `basecamp_create_kanban_card` - Create new card
 - `basecamp_update_kanban_card` - Update card with advanced content editing (supports full replacement, append, prepend, search/replace, plus title, due date, assignees)
+- `basecamp_move_kanban_card` - Move a card to a different column and/or position
 - `basecamp_create_kanban_step` - Add step to card
 
 ## Development

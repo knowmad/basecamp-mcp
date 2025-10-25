@@ -9,38 +9,6 @@ import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
-const GetTodoSetSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    todoset_id: BasecampIdSchema,
-  })
-  .strict();
-
-const ListTodosSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    todolist_id: BasecampIdSchema,
-    status: z.enum(["active", "archived"]).default("active").optional(),
-    completed: z.enum(["true"]).optional(),
-  })
-  .strict();
-
-const CreateTodoSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    todolist_id: BasecampIdSchema,
-    content: z.string().min(1),
-    description: z.string().optional(),
-  })
-  .strict();
-
-const CompleteTodoSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    todo_id: BasecampIdSchema,
-  })
-  .strict();
-
 export function registerTodoTools(server: McpServer): void {
   server.registerTool(
     "basecamp_get_todoset",
@@ -48,7 +16,10 @@ export function registerTodoTools(server: McpServer): void {
       title: "Get Basecamp Todo Set",
       description:
         "Get todo set container for a project. Returns todo lists and groups.",
-      inputSchema: GetTodoSetSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        todoset_id: BasecampIdSchema,
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -118,7 +89,12 @@ export function registerTodoTools(server: McpServer): void {
       title: "List Basecamp Todos",
       description:
         "List todos in a todo list. Filter by status: 'active' or 'archived'.",
-      inputSchema: ListTodosSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        todolist_id: BasecampIdSchema,
+        status: z.enum(["active", "archived"]).default("active").optional(),
+        completed: z.enum(["true"]).optional(),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -172,7 +148,12 @@ export function registerTodoTools(server: McpServer): void {
     {
       title: "Create Basecamp Todo",
       description: "Create a new todo item in a todo list.",
-      inputSchema: CreateTodoSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        todolist_id: BasecampIdSchema,
+        content: z.string().min(1),
+        description: z.string().optional(),
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -216,7 +197,10 @@ export function registerTodoTools(server: McpServer): void {
     {
       title: "Complete Basecamp Todo",
       description: "Mark a todo as completed.",
-      inputSchema: CompleteTodoSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        todo_id: BasecampIdSchema,
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -247,7 +231,10 @@ export function registerTodoTools(server: McpServer): void {
     {
       title: "Uncomplete Basecamp Todo",
       description: "Mark a todo as incomplete (undo completion).",
-      inputSchema: CompleteTodoSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        todo_id: BasecampIdSchema,
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,

@@ -4,16 +4,9 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { asyncPagedToArray } from "basecamp-client";
-import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
-
-const GetPersonSchema = z
-  .object({
-    person_id: BasecampIdSchema,
-  })
-  .strict();
 
 export function registerPeopleTools(server: McpServer): void {
   server.registerTool(
@@ -31,6 +24,7 @@ export function registerPeopleTools(server: McpServer): void {
     async () => {
       try {
         const client = await initializeBasecampClient();
+
         const people = await asyncPagedToArray({
           fetchPage: client.people.list,
           request: { query: {} },
@@ -66,7 +60,9 @@ export function registerPeopleTools(server: McpServer): void {
     {
       title: "Get Basecamp Person",
       description: "Get details about a specific person.",
-      inputSchema: GetPersonSchema.shape,
+      inputSchema: {
+        person_id: BasecampIdSchema,
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

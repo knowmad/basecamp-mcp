@@ -16,53 +16,6 @@ import {
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
 
-// Get message schema
-const GetMessageSchema = z
-  .object({
-    bucket_id: BasecampIdSchema.describe(
-      "Project/bucket ID containing the message",
-    ),
-    message_id: BasecampIdSchema.describe("Message ID to retrieve"),
-  })
-  .strict();
-
-// List messages schema
-const ListMessagesSchema = z
-  .object({
-    bucket_id: BasecampIdSchema.describe("Project/bucket ID"),
-    message_board_id: BasecampIdSchema.describe("Message board ID"),
-  })
-  .strict();
-
-// Create message schema
-const CreateMessageSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    message_board_id: BasecampIdSchema,
-    subject: z.string().min(1).max(500).describe("Message subject/title"),
-    content: z.string().optional().describe("Message content (HTML supported)"),
-    status: z
-      .enum(["active", "draft"])
-      .default("active")
-      .describe("Message status"),
-  })
-  .strict();
-
-// Update message (PATCH support - all fields optional)
-const UpdateMessagePatchSchema = z
-  .object({
-    bucket_id: BasecampIdSchema,
-    message_id: BasecampIdSchema,
-    subject: z
-      .string()
-      .min(1)
-      .max(500)
-      .optional()
-      .describe("New message subject"),
-    ...ContentOperationFields,
-  })
-  .strict();
-
 export function registerMessageTools(server: McpServer): void {
   // basecamp_get_message
   server.registerTool(
@@ -70,7 +23,12 @@ export function registerMessageTools(server: McpServer): void {
     {
       title: "Get Basecamp Message",
       description: `Retrieve a single message from a Basecamp message board.`,
-      inputSchema: GetMessageSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema.describe(
+          "Project/bucket ID containing the message",
+        ),
+        message_id: BasecampIdSchema.describe("Message ID to retrieve"),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -128,7 +86,10 @@ export function registerMessageTools(server: McpServer): void {
     {
       title: "List Basecamp Messages",
       description: `List messages in a Basecamp message board`,
-      inputSchema: ListMessagesSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema.describe("Project/bucket ID"),
+        message_board_id: BasecampIdSchema.describe("Message board ID"),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -181,7 +142,19 @@ export function registerMessageTools(server: McpServer): void {
     {
       title: "Create Basecamp Message",
       description: `Create a new message in a Basecamp message board.`,
-      inputSchema: CreateMessageSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        message_board_id: BasecampIdSchema,
+        subject: z.string().min(1).max(500).describe("Message subject/title"),
+        content: z
+          .string()
+          .optional()
+          .describe("Message content (HTML supported)"),
+        status: z
+          .enum(["active", "draft"])
+          .default("active")
+          .describe("Message status"),
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -229,7 +202,17 @@ export function registerMessageTools(server: McpServer): void {
     {
       title: "Update Basecamp Message",
       description: `Update a message. At least one field (subject, content, or partial content operations) must be provided. Returns updated message.`,
-      inputSchema: UpdateMessagePatchSchema.shape,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        message_id: BasecampIdSchema,
+        subject: z
+          .string()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe("New message subject"),
+        ...ContentOperationFields,
+      },
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
