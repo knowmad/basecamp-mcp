@@ -9,9 +9,14 @@ export const htmlRules = `
 
 HTML rules for content:
 
-* Allowed tags: div, h1, br, strong, em, strike, a (with an href attribute), pre, ol, ul, li, blockquote, bc-attachment (with sgid attribute).
-* Try to be semantic despite the limitations of tags. Use double <br> as paragraphs
+* Allowed tags: div, span, h1, br, strong, em, strike, a (with an href attribute), pre, ol, ul, li, blockquote, bc-attachment (with sgid attribute).
+* Try to be semantic despite the limitations of tags. Use double <br> to create paragraph spacing
 * To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>
+* To consume less tokens, existing <bc-attachment> tags can be rewritten by dropping any attributes/inner content and just leave the "sgid" and "caption" attributes, without loosing any information
+* You can highlight parts of the content in this format <span style="background-color: rgb(...);">...</span> valid colors are:
+  * red: 255, 229, 229
+  * yellow: 250, 247, 133
+  * green: 228, 248, 226
 `;
 
 /**

@@ -7,8 +7,14 @@ import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
-import { htmlRules } from "../utils/contentOperations.js";
+import {
+  applyContentOperations,
+  ContentOperationFields,
+  htmlRules,
+  validateContentOperations,
+} from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import { serializePerson } from "../utils/serializers.js";
 
 export function registerTodoTools(server: McpServer): void {
   server.registerTool(
@@ -126,8 +132,9 @@ export function registerTodoTools(server: McpServer): void {
                   count: todos.length,
                   todos: todos.map((t) => ({
                     id: t.id,
-                    content: t.content,
+                    title: t.content,
                     completed: t.completed,
+                    assignees: t.assignees.map(serializePerson),
                   })),
                 },
                 null,
@@ -152,8 +159,12 @@ export function registerTodoTools(server: McpServer): void {
       inputSchema: {
         bucket_id: BasecampIdSchema,
         todolist_id: BasecampIdSchema,
-        content: z.string().min(1),
-        description: z.string().optional(),
+        title: z.string().min(1),
+        content: z.string().optional(),
+        assignee_ids: z
+          .array(BasecampIdSchema)
+          .optional()
+          .describe("Array of person IDs to assign to this todo"),
       },
       annotations: {
         readOnlyHint: false,
@@ -170,7 +181,11 @@ export function registerTodoTools(server: McpServer): void {
             bucketId: params.bucket_id,
             todolistId: params.todolist_id,
           },
-          body: { content: params.content, description: params.description },
+          body: {
+            content: params.title,
+            description: params.content,
+            assignee_ids: params.assignee_ids,
+          },
         });
 
         if (response.status !== 201 || !response.body) {
@@ -252,6 +267,107 @@ export function registerTodoTools(server: McpServer): void {
 
         return {
           content: [{ type: "text", text: "Todo marked as incomplete!" }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "basecamp_update_todo",
+    {
+      title: "Update Basecamp Todo",
+      description: `Update a todo item. Use partial content operations when possible to save on token usage. ${htmlRules}`,
+      inputSchema: {
+        bucket_id: BasecampIdSchema,
+        todo_id: BasecampIdSchema,
+        title: z.string().optional().describe("New todo title"),
+        assignee_ids: z
+          .array(BasecampIdSchema)
+          .optional()
+          .describe("Array of person IDs to assign to this todo"),
+        ...ContentOperationFields,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        // Validate at least one operation is provided
+        validateContentOperations(params, ["title", "assignee_ids"]);
+
+        const client = await initializeBasecampClient();
+
+        // Fetch current todo to get existing values
+        const currentResponse = await client.todos.get({
+          params: {
+            bucketId: params.bucket_id,
+            todoId: params.todo_id,
+          },
+        });
+
+        if (currentResponse.status !== 200 || !currentResponse.body) {
+          throw new Error(
+            `Failed to fetch current todo: ${currentResponse.status}`,
+          );
+        }
+
+        // Determine final title (maps to Basecamp's content field)
+        const finalTitle = params.title ?? currentResponse.body.content;
+
+        // Determine final content (maps to Basecamp's description field)
+        let finalContent: string | undefined;
+        const hasPartialOps =
+          params.content_append ||
+          params.content_prepend ||
+          params.search_replace;
+
+        if (hasPartialOps) {
+          const currentContent = currentResponse.body.description || "";
+          const result = applyContentOperations(currentContent, params);
+          if (result === undefined) {
+            throw new Error("Content operations resulted in undefined content");
+          }
+          finalContent = result;
+        } else if (params.content !== undefined) {
+          // Full content replacement
+          finalContent = params.content;
+        }
+
+        const response = await client.todos.update({
+          params: {
+            bucketId: params.bucket_id,
+            todoId: params.todo_id,
+          },
+          body: {
+            content: finalTitle,
+            ...(finalContent !== undefined
+              ? { description: finalContent }
+              : {}),
+            ...(params.assignee_ids !== undefined
+              ? { assignee_ids: params.assignee_ids }
+              : {}),
+          },
+        });
+
+        if (response.status !== 200 || !response.body) {
+          throw new Error("Failed to update todo");
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Todo updated!\n\nID: ${response.body.id}\nContent: ${response.body.content}`,
+            },
+          ],
         };
       } catch (error) {
         return {
