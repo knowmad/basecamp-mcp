@@ -17,8 +17,9 @@ This document provides comprehensive guidance for AI agents (like Claude) workin
 
 ### Key Features
 
-- **25 MCP Tools** organized into 6 categories: Projects, Messages, TODOs, Comments, People, and Kanban
+- **24 MCP Tools** organized into 6 categories: Projects, Messages, TODOs, Comments, People, and Kanban
 - **Advanced content operations**: append, prepend, search-replace for rich text editing
+- **Complete step management**: Array-based step operations (create, update, delete, reposition) for kanban cards
 - **Response size management**: 25K character limit with pagination support
 - **Comprehensive error handling**: User-friendly, status-specific error messages
 - **OAuth token caching**: Minimize API calls and improve performance
@@ -56,7 +57,7 @@ basecamp-mcp/
 │   │   ├── todos.ts              # Todo management (5 tools, 263 lines)
 │   │   ├── comments.ts           # Universal commenting (3 tools, 222 lines)
 │   │   ├── people.ts             # User management (3 tools, 183 lines)
-│   │   └── kanban.ts             # Kanban board operations (7 tools, 462 lines)
+│   │   └── kanban.ts             # Kanban board operations (6 tools, 710 lines)
 │   ├── utils/                    # Cross-cutting utility functions
 │   │   ├── auth.ts               # OAuth authentication & client setup with token caching
 │   │   ├── errorHandlers.ts      # API error handling with user-friendly messages
@@ -619,14 +620,13 @@ node run-evaluation.js
    - `basecamp_list_people`: List people with filtering
    - `basecamp_get_person`: Get person details
 
-6. **Kanban (7 tools)**:
+6. **Kanban (6 tools)**:
    - `basecamp_list_kanban_columns`: List board columns
    - `basecamp_list_kanban_cards`: List column cards
    - `basecamp_get_kanban_card`: Get card details
-   - `basecamp_create_kanban_card`: Create card
-   - `basecamp_update_kanban_card`: Update card (title, dates, assignees)
+   - `basecamp_create_kanban_card`: Create card with optional steps array
+   - `basecamp_update_kanban_card`: Update card (title, dates, assignees, complete step array)
    - `basecamp_move_kanban_card`: Move between columns
-   - `basecamp_create_kanban_step`: Add checklist step
 
 ### Adding New Tools Checklist
 
@@ -740,7 +740,8 @@ const client = await initializeBasecampClient();
 
 ## Version History
 
-- **1.0.1** (Current): Production release with 25 tools across 6 categories
+- **1.0.2** (Current): Enhanced kanban step management with array-based operations (24 tools)
+- **1.0.1**: Production release with 25 tools across 6 categories
 - **1.0.0**: Initial public release
 
 ## License

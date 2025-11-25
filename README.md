@@ -129,10 +129,9 @@ npm run dev
 - `basecamp_list_kanban_columns` - List all columns in a kanban board
 - `basecamp_list_kanban_cards` - List cards in a column with steps and assignees
 - `basecamp_get_kanban_card` - Get complete details of a specific card
-- `basecamp_create_kanban_card` - Create new card with title and optional content
-- `basecamp_update_kanban_card` - Update card with advanced content editing (supports full replacement, append, prepend, search/replace, plus title, due date, assignees, notifications)
+- `basecamp_create_kanban_card` - Create new card with title, content, and optional checklist steps
+- `basecamp_update_kanban_card` - Update card with advanced content editing (supports full replacement, append, prepend, search/replace, plus title, due date, assignees, notifications, and complete step array management)
 - `basecamp_move_kanban_card` - Move a card to a different column and/or position
-- `basecamp_create_kanban_step` - Add checklist step to a card
 
 ## Development
 
