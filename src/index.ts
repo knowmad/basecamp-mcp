@@ -9,6 +9,7 @@
  * - Comments (universal - work on any resource)
  * - People
  * - Kanban (cards, columns, steps)
+ * - Activity (recordings browsing)
  *
  * Environment variables required:
  * - BASECAMP_CLIENT_ID
@@ -19,6 +20,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { registerActivityTools } from "./tools/activity.js";
 import { registerCommentTools } from "./tools/comments.js";
 import { registerKanbanTools } from "./tools/kanban.js";
 import { registerMessageTools } from "./tools/messages.js";
@@ -64,6 +66,7 @@ async function main() {
   registerCommentTools(server);
   registerPeopleTools(server);
   registerKanbanTools(server);
+  registerActivityTools(server);
   console.error("Tools registered successfully");
 
   // Create stdio transport
