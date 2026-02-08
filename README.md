@@ -133,6 +133,9 @@ npm run dev
 - `basecamp_update_kanban_card` - Update card with advanced content editing (supports full replacement, append, prepend, search/replace, plus title, due date, assignees, notifications, and complete step array management)
 - `basecamp_move_kanban_card` - Move a card to a different column and/or position
 
+#### Activity
+- `basecamp_list_recordings` - Browse recent activity globally or across specific projects, with filtering by type, date range, person, and text search. All filters except text search support multiple values (e.g., multiple project IDs, person IDs, or types for OR-matching)
+
 ## Development
 
 ```bash
