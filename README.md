@@ -134,7 +134,8 @@ npm run dev
 - `basecamp_move_kanban_card` - Move a card to a different column and/or position
 
 #### Activity
-- `basecamp_list_recordings` - Browse recent activity globally or across specific projects, with filtering by type, date range, person, and text search. All filters except text search support multiple values (e.g., multiple project IDs, person IDs, or types for OR-matching)
+- `basecamp_list_recordings` - Browse recent activity globally or across specific projects, with filtering by type, date range, person, and text search. All filters support multiple values for OR-matching (e.g., multiple project IDs, person IDs, types, or search terms)
+- `basecamp_list_campfire_messages` - Browse chat messages from Campfires with filtering by campfire, person, text content, and date range. All filters support multiple values for OR-matching
 
 ## Development
 
