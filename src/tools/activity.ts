@@ -7,7 +7,7 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { asyncPagedToArray } from "basecamp-client";
+import { asyncPagedIterator } from "basecamp-client";
 import { z } from "zod";
 import { CHARACTER_LIMIT, DEFAULT_LIMIT } from "../constants.js";
 import { BasecampIdSchema } from "../schemas/common.js";
@@ -45,6 +45,11 @@ const TYPE_ALIASES: Record<string, string> = {
   event: "Schedule::Entry",
   schedule: "Schedule::Entry",
   vault: "Vault",
+  card: "Kanban::Card",
+  cards: "Kanban::Card",
+  kanban: "Kanban::Card",
+  step: "Kanban::Step",
+  steps: "Kanban::Step",
 };
 
 /**
@@ -234,23 +239,42 @@ Examples:
           baseQuery.status = params.status;
         }
 
-        // Fetch recordings for each type in parallel via the client library
-        const fetchPromises = types.map((type) =>
-          asyncPagedToArray({
+        // Parse since date upfront if provided
+        const sinceDate = params.since ? parseSince(params.since) : null;
+        const sortField = params.sort || "created_at";
+
+        // Fetch recordings for each type in parallel, with early termination if since is set
+        const fetchPromises = types.map(async (type) => {
+          const items: Awaited<
+            ReturnType<typeof client.recordings.list>
+          >["body"][number][] = [];
+
+          for await (const item of asyncPagedIterator({
             fetchPage: client.recordings.list,
             request: {
               query: { type, ...baseQuery },
             },
-          }),
-        );
+          })) {
+            // If filtering by date and results are sorted desc (default),
+            // stop once we hit records older than the cutoff
+            if (sinceDate && params.direction !== "asc") {
+              const itemDate = new Date(
+                sortField === "updated_at" ? item.updated_at : item.created_at,
+              );
+              if (itemDate < sinceDate) {
+                break;
+              }
+            }
+            items.push(item);
+          }
+          return items;
+        });
 
         const results = await Promise.all(fetchPromises);
         let filtered = results.flat();
 
-        // Filter by since date
-        if (params.since) {
-          const sinceDate = parseSince(params.since);
-          const sortField = params.sort || "created_at";
+        // If direction is asc, we couldn't do early termination, so filter now
+        if (sinceDate && params.direction === "asc") {
           filtered = filtered.filter((r) => {
             const date = new Date(
               sortField === "updated_at" ? r.updated_at : r.created_at,
@@ -276,7 +300,6 @@ Examples:
         }
 
         // Sort merged results
-        const sortField = params.sort || "created_at";
         const sortDir = params.direction || "desc";
         filtered.sort((a, b) => {
           const dateA = new Date(
