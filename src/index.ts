@@ -11,6 +11,7 @@ import { registerMessageTools } from "./tools/messages.js";
 import { registerPeopleTools } from "./tools/people.js";
 import { registerProjectTools } from "./tools/projects.js";
 import { registerTodoTools } from "./tools/todos.js";
+import { registerCheckinTools } from "./tools/checkins.js";
 import { registerUploadTools } from "./tools/uploads.js";
 
 async function main() {
@@ -30,6 +31,7 @@ async function main() {
 	registerActivityTools(server);
 	registerDocumentTools(server);
 	registerUploadTools(server);
+	registerCheckinTools(server);
 	console.error("Tools registered successfully");
 
 	const transport = new StdioServerTransport();

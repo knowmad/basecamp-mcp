@@ -100,7 +100,7 @@ export function registerTodoTools(server: McpServer): void {
         bucket_id: BasecampIdSchema,
         todolist_id: BasecampIdSchema,
         status: z.enum(["active", "archived"]).default("active").optional(),
-        completed: z.enum(["true"]).optional(),
+        completed: z.literal(true).optional(),
       },
       annotations: {
         readOnlyHint: true,
