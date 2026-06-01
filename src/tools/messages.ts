@@ -225,9 +225,11 @@ export function registerMessageTools(server: McpServer): void {
           "Optional message type/category ID",
         ),
         status: z
-          .enum(["active", "draft"])
+          .enum(["active", "drafted"])
           .default("active")
-          .describe("Message status"),
+          .describe(
+            `Message status. Use "active" to publish, "drafted" to save as an unpublished draft.`,
+          ),
       },
       annotations: {
         readOnlyHint: false,
