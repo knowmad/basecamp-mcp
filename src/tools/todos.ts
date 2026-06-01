@@ -143,6 +143,8 @@ export function registerTodoTools(server: McpServer): void {
                     id: t.id,
                     title: t.content,
                     completed: t.completed,
+                    due_on: t.due_on,
+                    starts_on: t.starts_on,
                     assignees: t.assignees.map(serializePerson),
                   })),
                 },
@@ -218,7 +220,13 @@ export function registerTodoTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Todo created!\n\nID: ${response.body.id}\nContent: ${response.body.content}`,
+              text: `Todo created!\n\nID: ${response.body.id}\nContent: ${response.body.content}${
+                response.body.due_on ? `\nDue: ${response.body.due_on}` : ""
+              }${
+                response.body.starts_on
+                  ? `\nStarts: ${response.body.starts_on}`
+                  : ""
+              }`,
             },
           ],
         };
@@ -410,7 +418,13 @@ export function registerTodoTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Todo updated!\n\nID: ${response.body.id}\nContent: ${response.body.content}`,
+              text: `Todo updated!\n\nID: ${response.body.id}\nContent: ${response.body.content}${
+                response.body.due_on ? `\nDue: ${response.body.due_on}` : ""
+              }${
+                response.body.starts_on
+                  ? `\nStarts: ${response.body.starts_on}`
+                  : ""
+              }`,
             },
           ],
         };
