@@ -219,7 +219,7 @@ export function registerMessageTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            `HTML message content. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
+            `HTML message content. ${htmlRules}`,
           ),
         message_type_id: BasecampIdSchema.optional().describe(
           "Optional message type/category ID",
