@@ -16,6 +16,15 @@ import {
 import { handleBasecampError } from "../utils/errorHandlers.js";
 import { serializePerson } from "../utils/serializers.js";
 
+/**
+ * Optional date field for todos. Accepts an ISO date (YYYY-MM-DD) or an empty
+ * string. Empty/omitted leaves the date unset on create and clears it on update.
+ */
+const TodoDateSchema = z
+  .string()
+  .regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date must be in YYYY-MM-DD format or empty")
+  .optional();
+
 export function registerTodoTools(server: McpServer): void {
   server.registerTool(
     "basecamp_get_todoset",
@@ -134,6 +143,8 @@ export function registerTodoTools(server: McpServer): void {
                     id: t.id,
                     title: t.content,
                     completed: t.completed,
+                    due_on: t.due_on,
+                    starts_on: t.starts_on,
                     assignees: t.assignees.map(serializePerson),
                   })),
                 },
@@ -165,6 +176,16 @@ export function registerTodoTools(server: McpServer): void {
           .array(BasecampIdSchema)
           .optional()
           .describe("Array of person IDs to assign to this todo"),
+        due_on: TodoDateSchema.describe(
+          "Due date in YYYY-MM-DD format. Pass an empty string to leave the due date unset.",
+        ),
+        starts_on: TodoDateSchema.describe(
+          "Start date in YYYY-MM-DD format (for a date range; requires due_on). Pass an empty string to leave it unset.",
+        ),
+        notify: z
+          .boolean()
+          .optional()
+          .describe("Whether to notify the assignees about this todo"),
       },
       annotations: {
         readOnlyHint: false,
@@ -185,6 +206,9 @@ export function registerTodoTools(server: McpServer): void {
             content: params.title,
             description: params.content,
             assignee_ids: params.assignee_ids,
+            ...(params.due_on ? { due_on: params.due_on } : {}),
+            ...(params.starts_on ? { starts_on: params.starts_on } : {}),
+            ...(params.notify !== undefined ? { notify: params.notify } : {}),
           },
         });
 
@@ -196,7 +220,13 @@ export function registerTodoTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Todo created!\n\nID: ${response.body.id}\nContent: ${response.body.content}`,
+              text: `Todo created!\n\nID: ${response.body.id}\nContent: ${response.body.content}${
+                response.body.due_on ? `\nDue: ${response.body.due_on}` : ""
+              }${
+                response.body.starts_on
+                  ? `\nStarts: ${response.body.starts_on}`
+                  : ""
+              }`,
             },
           ],
         };
@@ -289,6 +319,16 @@ export function registerTodoTools(server: McpServer): void {
           .array(BasecampIdSchema)
           .optional()
           .describe("Array of person IDs to assign to this todo"),
+        due_on: TodoDateSchema.describe(
+          "Due date in YYYY-MM-DD format. Pass an empty string to clear the due date.",
+        ),
+        starts_on: TodoDateSchema.describe(
+          "Start date in YYYY-MM-DD format (for a date range; requires due_on). Pass an empty string to clear it.",
+        ),
+        notify: z
+          .boolean()
+          .optional()
+          .describe("Whether to notify the assignees about this todo"),
         ...ContentOperationFields,
       },
       annotations: {
@@ -301,7 +341,13 @@ export function registerTodoTools(server: McpServer): void {
     async (params) => {
       try {
         // Validate at least one operation is provided
-        validateContentOperations(params, ["title", "assignee_ids"]);
+        validateContentOperations(params, [
+          "title",
+          "assignee_ids",
+          "due_on",
+          "starts_on",
+          "notify",
+        ]);
 
         const client = await initializeBasecampClient();
 
@@ -354,6 +400,13 @@ export function registerTodoTools(server: McpServer): void {
             ...(params.assignee_ids !== undefined
               ? { assignee_ids: params.assignee_ids }
               : {}),
+            ...(params.due_on !== undefined
+              ? { due_on: params.due_on || null }
+              : {}),
+            ...(params.starts_on !== undefined
+              ? { starts_on: params.starts_on || null }
+              : {}),
+            ...(params.notify !== undefined ? { notify: params.notify } : {}),
           },
         });
 
@@ -365,7 +418,13 @@ export function registerTodoTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Todo updated!\n\nID: ${response.body.id}\nContent: ${response.body.content}`,
+              text: `Todo updated!\n\nID: ${response.body.id}\nContent: ${response.body.content}${
+                response.body.due_on ? `\nDue: ${response.body.due_on}` : ""
+              }${
+                response.body.starts_on
+                  ? `\nStarts: ${response.body.starts_on}`
+                  : ""
+              }`,
             },
           ],
         };
