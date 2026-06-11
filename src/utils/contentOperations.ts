@@ -9,14 +9,20 @@ export const htmlRules = `
 
 HTML rules for content:
 
-* Allowed tags: div, span, h1, br, strong, em, strike, a (with an href attribute), pre, ol, ul, li, blockquote, bc-attachment (with sgid attribute).
-* Try to be semantic despite the limitations of tags. Use double <br> to create paragraph spacing
-* To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>
-* To consume less tokens, existing <bc-attachment> tags can be rewritten by dropping any attributes/inner content and just leave the "sgid" and "caption" attributes, without loosing any information
-* You can highlight parts of the content in this format <span style="background-color: rgb(...);">...</span> valid colors are:
-  * red: 255, 229, 229
-  * yellow: 250, 247, 133
-  * green: 228, 248, 226
+* Allowed tags: p, span, h2, h3, h4, br, strong, em, strike, code, a (with href attribute), pre, ol, ul, li, blockquote, mark, figure, figcaption, table, tbody, tr, th, td, div, bc-attachment.
+* Use <p> for paragraphs. Use <p><br></p> for empty line spacing between paragraphs.
+* Headings: use <h2>, <h3>, <h4> as appropriate.
+* Inline code: <code>text</code>. Preformatted blocks: <pre>text</pre>.
+* Ordered lists: <ol><li>...</li></ol>. Unordered: <ul><li>...</li></ul>.
+* Tables: <table><tbody><tr><th>Heading</th>...</tr><tr><td>Cell</td>...</tr></tbody></table>
+* To mention people: <bc-attachment sgid="{ person.attachable_sgid }" content-type="application/vnd.basecamp.mention"></bc-attachment>
+* Single image: <bc-attachment sgid="{ attachment.attachable_sgid }"></bc-attachment>
+* Image gallery: wrap multiple <bc-attachment sgid="..." presentation="gallery"> in a <div>.
+* Basecamp auto-enriches bc-attachment tags after saving (adds url, href, filename, content-type, etc.) — you never need to write those.
+* To consume less tokens, existing <bc-attachment> tags can be rewritten keeping only: sgid, presentation, caption. For mentions also keep content-type="application/vnd.basecamp.mention". Drop everything else including inner HTML.
+* Background highlights: <mark style="background-color: var(--highlight-bg-N);">...</mark>
+* Text color highlights: <span style="color: var(--highlight-N);">...</span>
+* For both, N is 1 (yellow), 2 (amber), 3 (red), 4 (pink), 5 (purple), 6 (blue), 7 (teal), 8 (near-white), or 9 (light gray).
 `;
 
 /**
