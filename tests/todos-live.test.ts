@@ -15,6 +15,7 @@ type Todo = {
   completed: boolean;
   due_on?: string | null;
   starts_on?: string | null;
+  group?: string | null;
   assignees: Array<{ id: number; name: string } | null>;
 };
 
@@ -207,5 +208,39 @@ describe("Basecamp todos via MCP tools (live)", () => {
     expect(clearedTodo?.due_on == null || clearedTodo?.due_on === "").toBe(
       true,
     );
+  });
+
+  it("includes todos nested in groups/sections", async () => {
+    // Todos inside a group are not returned by todos.list(listId); the tool now
+    // also walks the list's groups so sectioned lists are not reported empty.
+    const client = await initializeBasecampClient();
+    const group = await client.todolistGroups.create(todolistId, {
+      name: `Section ${Date.now()}`,
+    });
+
+    const groupedTitle = `MCP grouped todo ${Date.now()}`;
+    const grouped = await client.todos.create(group.id, {
+      content: groupedTitle,
+    });
+    toTrash.push(grouped.id);
+
+    const listed = await mcp.json<TodoList>("basecamp_list_todos", {
+      todolist_id: todolistId,
+    });
+
+    const found = listed.todos.find((t) => t.id === grouped.id);
+    expect(found).toBeDefined();
+    expect(found?.title).toBe(groupedTitle);
+    expect(found?.group).toBe(group.title || group.name);
+  });
+
+  it("accepts a stringified id (client serialization, regression for #5)", async () => {
+    // Some MCP clients serialize numeric arguments as strings; BasecampIdSchema
+    // coerces them rather than rejecting with "Expected number, received string".
+    const listed = await mcp.json<TodoList>("basecamp_list_todos", {
+      todolist_id: String(todolistId),
+    });
+    expect(typeof listed.count).toBe("number");
+    expect(Array.isArray(listed.todos)).toBe(true);
   });
 });

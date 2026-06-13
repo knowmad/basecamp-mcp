@@ -102,10 +102,37 @@ export function registerTodoTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const todos = await client.todos.list(params.todolist_id, {
+        const listOptions = {
           status: params.status,
           completed: params.completed,
-        });
+        };
+
+        // Todos directly under the list (i.e. not inside any group).
+        const ungroupedTodos = await client.todos.list(
+          params.todolist_id,
+          listOptions,
+        );
+
+        // A todo list can be split into groups ("sections"). Todos that live in
+        // a group are NOT returned by todos.list(listId) — they only come back
+        // from todos.list(groupId). Without this, lists that use sections return
+        // an empty result even though they contain todos (GitHub issue #7).
+        const groups = await client.todolistGroups.list(params.todolist_id);
+        const groupedResults = await Promise.all(
+          groups.map(async (group) => {
+            const groupTodos = await client.todos.list(group.id, listOptions);
+            const groupName = group.title || group.name || null;
+            return groupTodos.map((t) => ({ todo: t, group: groupName }));
+          }),
+        );
+
+        const todos = [
+          ...ungroupedTodos.map((t) => ({
+            todo: t,
+            group: null as string | null,
+          })),
+          ...groupedResults.flat(),
+        ];
 
         return {
           content: [
@@ -114,12 +141,13 @@ export function registerTodoTools(server: McpServer): void {
               text: JSON.stringify(
                 {
                   count: todos.length,
-                  todos: todos.map((t) => ({
+                  todos: todos.map(({ todo: t, group }) => ({
                     id: t.id,
                     title: t.content,
                     completed: t.completed,
                     due_on: t.due_on,
                     starts_on: t.starts_on,
+                    group,
                     assignees: (t.assignees || []).map(serializePerson),
                   })),
                 },

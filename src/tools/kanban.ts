@@ -367,7 +367,7 @@ export function registerKanbanTools(server: McpServer): void {
         content: z.string().optional(),
         due_on: z.string().optional().describe("Due date in YYYY-MM-DD format"),
         assignee_ids: z
-          .array(z.number())
+          .array(BasecampIdSchema)
           .optional()
           .describe("Array of user IDs to assign to the card"),
         notify: z.boolean().optional().describe("Whether to notify assignees"),
@@ -381,7 +381,7 @@ export function registerKanbanTools(server: McpServer): void {
                 .optional()
                 .describe("Due date (YYYY-MM-DD) or null"),
               assignee_ids: z
-                .array(z.number())
+                .array(BasecampIdSchema)
                 .optional()
                 .describe("Array of user IDs to assign"),
               completed: z
@@ -458,16 +458,15 @@ export function registerKanbanTools(server: McpServer): void {
           .optional()
           .describe("Due date (YYYY-MM-DD format) or null to clear"),
         assignee_ids: z
-          .array(z.number())
+          .array(BasecampIdSchema)
           .optional()
           .describe("Array of user IDs to assign to the card"),
         steps: z
           .array(
             z.object({
-              id: z
-                .number()
-                .optional()
-                .describe("Step ID for updates. Omit for new steps."),
+              id: BasecampIdSchema.optional().describe(
+                "Step ID for updates. Omit for new steps.",
+              ),
               title: z.string().describe("Step title. Required for new steps."),
               due_on: z
                 .string()
@@ -475,7 +474,7 @@ export function registerKanbanTools(server: McpServer): void {
                 .optional()
                 .describe("Due date (YYYY-MM-DD) or null to clear"),
               assignee_ids: z
-                .array(z.number())
+                .array(BasecampIdSchema)
                 .optional()
                 .describe("Array of user IDs to assign"),
               completed: z
@@ -596,7 +595,7 @@ export function registerKanbanTools(server: McpServer): void {
       inputSchema: {
         card_id: BasecampIdSchema,
         column_id: BasecampIdSchema,
-        position: z
+        position: z.coerce
           .number()
           .int()
           .positive()
