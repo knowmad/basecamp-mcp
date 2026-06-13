@@ -22,7 +22,8 @@
     "check": "biome check --write .",
     "check:ci": "biome check .",
     "prepublishOnly": "npm run clean && npm run build",
-    "test": "echo 'All good'"
+    "test": "vitest run",
+    "test:watch": "vitest watch"
   },
   "engines": {
     "node": ">=18"
@@ -48,8 +49,8 @@
   },
   "homepage": "https://github.com/stefanoverna/basecamp-mcp#readme",
   "dependencies": {
+    "@37signals/basecamp": "^0.7.3",
     "@modelcontextprotocol/sdk": "^1.6.1",
-    "basecamp-client": "^1.0.10",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -60,6 +61,7 @@
     "np": "^10.2.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
+    "vitest": "^4.1.8",
     "xml2js": "^0.6.2"
   }
 }

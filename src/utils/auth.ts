@@ -1,32 +1,47 @@
-import { buildClient, type Client, getBearerToken } from "basecamp-client";
+import { type BasecampClient, createBasecampClient } from "@37signals/basecamp";
 import { readCredentials } from "./credentials.js";
-import { getClientCredentials } from "./oauth.js";
+import { getClientCredentials, refreshAccessToken } from "./oauth.js";
 
 let cachedBearerToken: string | null = null;
 
-export async function initializeBasecampClient(): Promise<Client> {
-	const creds = await readCredentials();
+/**
+ * Return a valid bearer token, refreshing (and caching) one if necessary.
+ * Throws if the user is not logged in.
+ */
+export async function getBearerToken(): Promise<string> {
+  const creds = await readCredentials();
 
-	if (!creds) {
-		throw new Error("Not logged in. Use basecamp_login to authenticate.");
-	}
+  if (!creds) {
+    throw new Error("Not logged in. Use basecamp_login to authenticate.");
+  }
 
-	const { clientId, clientSecret } = getClientCredentials();
+  if (!cachedBearerToken) {
+    const { clientId, clientSecret } = getClientCredentials();
+    cachedBearerToken = await refreshAccessToken(
+      creds.refreshToken,
+      clientId,
+      clientSecret,
+    );
+  }
 
-	if (!cachedBearerToken) {
-		cachedBearerToken = await getBearerToken({
-			clientId,
-			clientSecret,
-			refreshToken: creds.refreshToken,
-		});
-	}
+  return cachedBearerToken;
+}
 
-	return buildClient({
-		bearerToken: cachedBearerToken,
-		accountId: creds.accountId,
-	});
+export async function initializeBasecampClient(): Promise<BasecampClient> {
+  const creds = await readCredentials();
+
+  if (!creds) {
+    throw new Error("Not logged in. Use basecamp_login to authenticate.");
+  }
+
+  const accessToken = await getBearerToken();
+
+  return createBasecampClient({
+    accountId: creds.accountId,
+    accessToken,
+  });
 }
 
 export function clearTokenCache(): void {
-	cachedBearerToken = null;
+  cachedBearerToken = null;
 }

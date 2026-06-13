@@ -5,7 +5,6 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
@@ -40,16 +39,11 @@ export function registerProjectTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
 
-        // Fetch projects with pagination
-        const projects = await asyncPagedToArray({
-          fetchPage: client.projects.list,
-          request: {
-            query: {},
-          },
-        });
+        // Fetch projects (the SDK auto-paginates across all pages)
+        const projects = await client.projects.list();
 
         // Apply filter if provided
-        let filteredProjects = projects;
+        let filteredProjects = [...projects];
         if (params.filter) {
           const regex = new RegExp(params.filter, "i");
           filteredProjects = projects.filter(
@@ -108,15 +102,7 @@ Examples:
       try {
         const client = await initializeBasecampClient();
 
-        const response = await client.projects.get({
-          params: { projectId: params.project_id },
-        });
-
-        if (response.status !== 200 || !response.body) {
-          throw new Error(`Failed to fetch project: ${response.status}`);
-        }
-
-        const project = response.body;
+        const project = await client.projects.get(params.project_id);
 
         const jsonData = {
           id: project.id,

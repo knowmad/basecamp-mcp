@@ -3,7 +3,6 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
@@ -14,7 +13,8 @@ export function registerPeopleTools(server: McpServer): void {
     "basecamp_get_me",
     {
       title: "Get My Basecamp Profile",
-      description: "Get personal information for the authenticated user (me).",
+      description:
+        "Get your full profile for the authenticated user (id, name, email, title, attachable_sgid). To simply check whether you're logged in, use basecamp_whoami.",
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -26,13 +26,7 @@ export function registerPeopleTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
 
-        const response = await client.people.me({});
-
-        if (response.status !== 200 || !response.body) {
-          throw new Error("Failed to get personal info");
-        }
-
-        const me = response.body;
+        const me = await client.people.me();
 
         return {
           content: [
@@ -84,13 +78,10 @@ export function registerPeopleTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
 
-        const people = await asyncPagedToArray({
-          fetchPage: client.people.list,
-          request: { query: {} },
-        });
+        const people = await client.people.list();
 
         // Apply filter if provided
-        let filteredPeople = people;
+        let filteredPeople = [...people];
         if (params.filter) {
           const regex = new RegExp(params.filter, "i");
           filteredPeople = people.filter(
@@ -146,15 +137,7 @@ export function registerPeopleTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
 
-        const response = await client.people.get({
-          params: { personId: params.person_id },
-        });
-
-        if (response.status !== 200 || !response.body) {
-          throw new Error("Failed to get person");
-        }
-
-        const person = response.body;
+        const person = await client.people.get(params.person_id);
 
         return {
           content: [

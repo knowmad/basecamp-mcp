@@ -5,7 +5,6 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
@@ -26,9 +25,6 @@ export function registerMessageTools(server: McpServer): void {
       title: "Get Basecamp Message",
       description: `Retrieve a single message from a Basecamp message board.`,
       inputSchema: {
-        bucket_id: BasecampIdSchema.describe(
-          "Project/bucket ID containing the message",
-        ),
         message_id: BasecampIdSchema.describe("Message ID to retrieve"),
       },
       annotations: {
@@ -41,15 +37,7 @@ export function registerMessageTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const response = await client.messages.get({
-          params: { bucketId: params.bucket_id, messageId: params.message_id },
-        });
-
-        if (response.status !== 200 || !response.body) {
-          throw new Error(`Failed to fetch message: ${response.status}`);
-        }
-
-        const msg = response.body;
+        const msg = await client.messages.get(params.message_id);
 
         return {
           content: [
@@ -84,9 +72,8 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_list_messages",
     {
       title: "List Basecamp Messages",
-      description: `List messages in a Basecamp message board`,
+      description: `List messages in a Basecamp message board (a single project). For cross-project or time-based browsing across content types, use basecamp_list_recordings instead.`,
       inputSchema: {
-        bucket_id: BasecampIdSchema.describe("Project/bucket ID"),
         message_board_id: BasecampIdSchema.describe("Message board ID"),
         filter: z
           .string()
@@ -105,19 +92,10 @@ export function registerMessageTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const messages = await asyncPagedToArray({
-          fetchPage: client.messages.list,
-          request: {
-            params: {
-              bucketId: params.bucket_id,
-              messageBoardId: params.message_board_id,
-            },
-            query: {},
-          },
-        });
+        const messages = await client.messages.list(params.message_board_id);
 
         // Apply filter if provided
-        let filteredMessages = messages;
+        let filteredMessages = [...messages];
         if (params.filter) {
           const regex = new RegExp(params.filter, "i");
           filteredMessages = messages.filter(
@@ -169,14 +147,32 @@ export function registerMessageTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const response = await client.messageTypes.list({
-          params: {
-            bucketId: params.bucket_id,
-          },
+
+        // NOTE: The SDK's client.messageTypes.list() targets the account-level
+        // /categories.json endpoint, which 404s — message types (categories)
+        // are project-scoped. Hit the bucket-scoped endpoint via the low-level
+        // client instead. (This path isn't in the SDK's typed schema, hence the
+        // cast.)
+        const { data, error } = await (
+          client.GET as unknown as (
+            path: string,
+            init: { params: { path: { bucketId: number } } },
+          ) => Promise<{
+            data?: Array<{
+              id: number;
+              name: string;
+              icon: string;
+              created_at: string;
+              updated_at: string;
+            }>;
+            error?: unknown;
+          }>
+        )("/buckets/{bucketId}/categories.json", {
+          params: { path: { bucketId: params.bucket_id } },
         });
 
-        if (response.status !== 200 || !response.body) {
-          throw new Error(`Failed to fetch message types: ${response.status}`);
+        if (error || !data) {
+          throw new Error("Failed to fetch message types");
         }
 
         return {
@@ -184,7 +180,7 @@ export function registerMessageTools(server: McpServer): void {
             {
               type: "text",
               text: JSON.stringify(
-                response.body.map((mt) => ({
+                data.map((mt) => ({
                   id: mt.id,
                   name: mt.name,
                   icon: mt.icon,
@@ -212,15 +208,12 @@ export function registerMessageTools(server: McpServer): void {
       title: "Create Basecamp Message",
       description: `Create a new message in a Basecamp message board.`,
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         message_board_id: BasecampIdSchema,
         subject: z.string().min(1).max(500).describe("Message subject/title"),
         content: z
           .string()
           .optional()
-          .describe(
-            `HTML message content. ${htmlRules}`,
-          ),
+          .describe(`HTML message content. ${htmlRules}`),
         message_type_id: BasecampIdSchema.optional().describe(
           "Optional message type/category ID",
         ),
@@ -241,28 +234,18 @@ export function registerMessageTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const response = await client.messages.create({
-          params: {
-            bucketId: params.bucket_id,
-            messageBoardId: params.message_board_id,
-          },
-          body: {
-            subject: params.subject,
-            content: params.content,
-            category_id: params.message_type_id,
-            status: params.status,
-          },
+        const message = await client.messages.create(params.message_board_id, {
+          subject: params.subject,
+          content: params.content,
+          categoryId: params.message_type_id,
+          status: params.status,
         });
-
-        if (response.status !== 201 || !response.body) {
-          throw new Error(`Failed to create message`);
-        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Message created successfully!\n\nID: ${response.body.id}\nSubject: ${response.body.title}\nURL: ${response.body.app_url}`,
+              text: `Message created successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nURL: ${message.app_url}`,
             },
           ],
         };
@@ -280,7 +263,6 @@ export function registerMessageTools(server: McpServer): void {
       title: "Update Basecamp Message",
       description: `Update a message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         message_id: BasecampIdSchema,
         subject: z
           .string()
@@ -317,20 +299,8 @@ export function registerMessageTools(server: McpServer): void {
         if (hasPartialOps || params.content !== undefined) {
           // Fetch current message if needed for partial operations
           if (hasPartialOps) {
-            const currentResponse = await client.messages.get({
-              params: {
-                bucketId: params.bucket_id,
-                messageId: params.message_id,
-              },
-            });
-
-            if (currentResponse.status !== 200 || !currentResponse.body) {
-              throw new Error(
-                `Failed to fetch current message for partial update: ${currentResponse.status}`,
-              );
-            }
-
-            const currentContent = currentResponse.body.content || "";
+            const current = await client.messages.get(params.message_id);
+            const currentContent = current.content || "";
             finalContent = applyContentOperations(currentContent, params);
           } else {
             // Full content replacement
@@ -338,26 +308,19 @@ export function registerMessageTools(server: McpServer): void {
           }
         }
 
-        const response = await client.messages.update({
-          params: { bucketId: params.bucket_id, messageId: params.message_id },
-          body: {
-            ...(params.subject ? { subject: params.subject } : {}),
-            ...(finalContent !== undefined ? { content: finalContent } : {}),
-            ...(params.message_type_id
-              ? { category_id: params.message_type_id }
-              : {}),
-          },
+        const message = await client.messages.update(params.message_id, {
+          ...(params.subject ? { subject: params.subject } : {}),
+          ...(finalContent !== undefined ? { content: finalContent } : {}),
+          ...(params.message_type_id
+            ? { categoryId: params.message_type_id }
+            : {}),
         });
-
-        if (response.status !== 200 || !response.body) {
-          throw new Error(`Failed to update message`);
-        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Message updated successfully!\n\nID: ${response.body.id}\nSubject: ${response.body.title}`,
+              text: `Message updated successfully!\n\nID: ${message.id}\nSubject: ${message.title}`,
             },
           ],
         };

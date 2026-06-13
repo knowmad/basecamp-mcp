@@ -4,7 +4,6 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
@@ -25,7 +24,6 @@ export function registerCommentTools(server: McpServer): void {
       description:
         "List comments on any Basecamp resource (message, todo, card, etc.). Works universally on all recording types.",
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         recording_id: BasecampIdSchema.describe(
           "ID of the resource (message, todo, card, etc.)",
         ),
@@ -41,16 +39,7 @@ export function registerCommentTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
 
-        const comments = await asyncPagedToArray({
-          fetchPage: client.comments.list,
-          request: {
-            params: {
-              bucketId: params.bucket_id,
-              recordingId: params.recording_id,
-            },
-            query: {},
-          },
-        });
+        const comments = await client.comments.list(params.recording_id);
 
         return {
           content: [
@@ -84,7 +73,6 @@ export function registerCommentTools(server: McpServer): void {
       description:
         "Add a comment to any Basecamp resource (message, todo, card, etc.).",
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         recording_id: BasecampIdSchema,
         content: z
           .string()
@@ -103,23 +91,15 @@ export function registerCommentTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const response = await client.comments.create({
-          params: {
-            bucketId: params.bucket_id,
-            recordingId: params.recording_id,
-          },
-          body: { content: params.content },
+        const comment = await client.comments.create(params.recording_id, {
+          content: params.content,
         });
-
-        if (response.status !== 201 || !response.body) {
-          throw new Error("Failed to create comment");
-        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Comment posted!\n\nID: ${response.body.id}`,
+              text: `Comment posted!\n\nID: ${comment.id}`,
             },
           ],
         };
@@ -137,7 +117,6 @@ export function registerCommentTools(server: McpServer): void {
       title: "Update Basecamp Comment",
       description: `Update a comment. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         comment_id: BasecampIdSchema,
         ...ContentOperationFields,
       },
@@ -165,20 +144,8 @@ export function registerCommentTools(server: McpServer): void {
         if (hasPartialOps || params.content !== undefined) {
           // Fetch current comment if needed for partial operations
           if (hasPartialOps) {
-            const currentResponse = await client.comments.get({
-              params: {
-                bucketId: params.bucket_id,
-                commentId: params.comment_id,
-              },
-            });
-
-            if (currentResponse.status !== 200 || !currentResponse.body) {
-              throw new Error(
-                `Failed to fetch current comment: ${currentResponse.status}`,
-              );
-            }
-
-            const currentContent = currentResponse.body.content || "";
+            const current = await client.comments.get(params.comment_id);
+            const currentContent = current.content || "";
             finalContent = applyContentOperations(currentContent, params);
           } else {
             // Full content replacement
@@ -192,23 +159,15 @@ export function registerCommentTools(server: McpServer): void {
         }
 
         // Update the comment
-        const response = await client.comments.update({
-          params: {
-            bucketId: params.bucket_id,
-            commentId: params.comment_id,
-          },
-          body: { content: finalContent },
+        const comment = await client.comments.update(params.comment_id, {
+          content: finalContent,
         });
-
-        if (response.status !== 200 || !response.body) {
-          throw new Error("Failed to update comment");
-        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Comment updated successfully!\n\nID: ${response.body.id}`,
+              text: `Comment updated successfully!\n\nID: ${comment.id}`,
             },
           ],
         };
