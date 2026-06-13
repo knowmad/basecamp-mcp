@@ -417,9 +417,11 @@ export function registerDocumentTools(server: McpServer): void {
         title: z.string().min(1).describe("Document title"),
         content: z.string().describe("HTML document content"),
         status: z
-          .enum(["active", "draft"])
+          .enum(["active", "drafted"])
           .default("active")
-          .describe("Document status"),
+          .describe(
+            `Document status. Use "active" to publish, "drafted" to save as an unpublished draft.`,
+          ),
       },
       annotations: {
         readOnlyHint: false,
