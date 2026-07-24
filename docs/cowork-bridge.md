@@ -46,7 +46,7 @@ instead.
 
 ## Step 1 — Pre-authenticate locally
 
-The bridged process runs on your machine but the OAuth browser flow (localhost:8888
+The bridged process runs on your machine but the OAuth browser flow (localhost:7652
 callback) can't happen from Cowork's sandbox. Authenticate **once** locally so tokens are
 cached to disk before you bridge:
 
