@@ -3,7 +3,6 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { asyncPagedToArray } from "basecamp-client";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
@@ -33,7 +32,6 @@ export function registerTodoTools(server: McpServer): void {
       description:
         "Get todo set container for a project. Returns todo lists and groups.",
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         todoset_id: BasecampIdSchema,
       },
       annotations: {
@@ -47,26 +45,10 @@ export function registerTodoTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
 
-        const responseTodoSet = await client.todoSets.get({
-          params: { bucketId: params.bucket_id, todosetId: params.todoset_id },
-        });
+        const todoSet = await client.todosets.get(params.todoset_id);
 
-        if (responseTodoSet.status !== 200 || !responseTodoSet.body) {
-          throw new Error("Failed to fetch todo set");
-        }
+        const todoLists = await client.todolists.list(params.todoset_id);
 
-        const todoLists = await asyncPagedToArray({
-          fetchPage: client.todoLists.list,
-          request: {
-            params: {
-              bucketId: params.bucket_id,
-              todosetId: params.todoset_id,
-            },
-            query: {},
-          },
-        });
-
-        const todoSet = responseTodoSet.body;
         return {
           content: [
             {
@@ -106,7 +88,6 @@ export function registerTodoTools(server: McpServer): void {
       description:
         "List todos in a todo list. Filter by status: 'active' or 'archived'.",
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         todolist_id: BasecampIdSchema,
         status: z.enum(["active", "archived"]).default("active").optional(),
         completed: z.literal(true).optional(),
@@ -121,16 +102,37 @@ export function registerTodoTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const todos = await asyncPagedToArray({
-          fetchPage: client.todos.list,
-          request: {
-            params: {
-              bucketId: params.bucket_id,
-              todolistId: params.todolist_id,
-            },
-            query: { status: params.status, completed: params.completed },
-          },
-        });
+        const listOptions = {
+          status: params.status,
+          completed: params.completed,
+        };
+
+        // Todos directly under the list (i.e. not inside any group).
+        const ungroupedTodos = await client.todos.list(
+          params.todolist_id,
+          listOptions,
+        );
+
+        // A todo list can be split into groups ("sections"). Todos that live in
+        // a group are NOT returned by todos.list(listId) — they only come back
+        // from todos.list(groupId). Without this, lists that use sections return
+        // an empty result even though they contain todos (GitHub issue #7).
+        const groups = await client.todolistGroups.list(params.todolist_id);
+        const groupedResults = await Promise.all(
+          groups.map(async (group) => {
+            const groupTodos = await client.todos.list(group.id, listOptions);
+            const groupName = group.title || group.name || null;
+            return groupTodos.map((t) => ({ todo: t, group: groupName }));
+          }),
+        );
+
+        const todos = [
+          ...ungroupedTodos.map((t) => ({
+            todo: t,
+            group: null as string | null,
+          })),
+          ...groupedResults.flat(),
+        ];
 
         return {
           content: [
@@ -139,13 +141,14 @@ export function registerTodoTools(server: McpServer): void {
               text: JSON.stringify(
                 {
                   count: todos.length,
-                  todos: todos.map((t) => ({
+                  todos: todos.map(({ todo: t, group }) => ({
                     id: t.id,
                     title: t.content,
                     completed: t.completed,
                     due_on: t.due_on,
                     starts_on: t.starts_on,
-                    assignees: t.assignees.map(serializePerson),
+                    group,
+                    assignees: (t.assignees || []).map(serializePerson),
                   })),
                 },
                 null,
@@ -168,7 +171,6 @@ export function registerTodoTools(server: McpServer): void {
       title: "Create Basecamp Todo",
       description: `Create a new todo item in a todo list. ${htmlRules}`,
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         todolist_id: BasecampIdSchema,
         title: z.string().min(1),
         content: z.string().optional(),
@@ -197,36 +199,22 @@ export function registerTodoTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        const response = await client.todos.create({
-          params: {
-            bucketId: params.bucket_id,
-            todolistId: params.todolist_id,
-          },
-          body: {
-            content: params.title,
-            description: params.content,
-            assignee_ids: params.assignee_ids,
-            ...(params.due_on ? { due_on: params.due_on } : {}),
-            ...(params.starts_on ? { starts_on: params.starts_on } : {}),
-            ...(params.notify !== undefined ? { notify: params.notify } : {}),
-          },
+        const todo = await client.todos.create(params.todolist_id, {
+          content: params.title,
+          description: params.content,
+          assigneeIds: params.assignee_ids,
+          ...(params.due_on ? { dueOn: params.due_on } : {}),
+          ...(params.starts_on ? { startsOn: params.starts_on } : {}),
+          ...(params.notify !== undefined ? { notify: params.notify } : {}),
         });
-
-        if (response.status !== 201 || !response.body) {
-          throw new Error("Failed to create todo");
-        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Todo created!\n\nID: ${response.body.id}\nContent: ${response.body.content}${
-                response.body.due_on ? `\nDue: ${response.body.due_on}` : ""
-              }${
-                response.body.starts_on
-                  ? `\nStarts: ${response.body.starts_on}`
-                  : ""
-              }`,
+              text: `Todo created!\n\nID: ${todo.id}\nContent: ${todo.content}${
+                todo.due_on ? `\nDue: ${todo.due_on}` : ""
+              }${todo.starts_on ? `\nStarts: ${todo.starts_on}` : ""}`,
             },
           ],
         };
@@ -244,7 +232,6 @@ export function registerTodoTools(server: McpServer): void {
       title: "Complete Basecamp Todo",
       description: "Mark a todo as completed.",
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         todo_id: BasecampIdSchema,
       },
       annotations: {
@@ -257,9 +244,7 @@ export function registerTodoTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        await client.todos.complete({
-          params: { bucketId: params.bucket_id, todoId: params.todo_id },
-        });
+        await client.todos.complete(params.todo_id);
 
         return {
           content: [{ type: "text", text: "Todo marked as completed!" }],
@@ -278,7 +263,6 @@ export function registerTodoTools(server: McpServer): void {
       title: "Uncomplete Basecamp Todo",
       description: "Mark a todo as incomplete (undo completion).",
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         todo_id: BasecampIdSchema,
       },
       annotations: {
@@ -291,9 +275,7 @@ export function registerTodoTools(server: McpServer): void {
     async (params) => {
       try {
         const client = await initializeBasecampClient();
-        await client.todos.uncomplete({
-          params: { bucketId: params.bucket_id, todoId: params.todo_id },
-        });
+        await client.todos.uncomplete(params.todo_id);
 
         return {
           content: [{ type: "text", text: "Todo marked as incomplete!" }],
@@ -312,7 +294,6 @@ export function registerTodoTools(server: McpServer): void {
       title: "Update Basecamp Todo",
       description: `Update a todo item. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
-        bucket_id: BasecampIdSchema,
         todo_id: BasecampIdSchema,
         title: z.string().optional().describe("New todo title"),
         assignee_ids: z
@@ -352,21 +333,10 @@ export function registerTodoTools(server: McpServer): void {
         const client = await initializeBasecampClient();
 
         // Fetch current todo to get existing values
-        const currentResponse = await client.todos.get({
-          params: {
-            bucketId: params.bucket_id,
-            todoId: params.todo_id,
-          },
-        });
-
-        if (currentResponse.status !== 200 || !currentResponse.body) {
-          throw new Error(
-            `Failed to fetch current todo: ${currentResponse.status}`,
-          );
-        }
+        const currentTodo = await client.todos.get(params.todo_id);
 
         // Determine final title (maps to Basecamp's content field)
-        const finalTitle = params.title ?? currentResponse.body.content;
+        const finalTitle = params.title ?? currentTodo.content;
 
         // Determine final content (maps to Basecamp's description field)
         let finalContent: string | undefined;
@@ -376,7 +346,7 @@ export function registerTodoTools(server: McpServer): void {
           params.search_replace;
 
         if (hasPartialOps) {
-          const currentContent = currentResponse.body.description || "";
+          const currentContent = currentTodo.description || "";
           const result = applyContentOperations(currentContent, params);
           if (result === undefined) {
             throw new Error("Content operations resulted in undefined content");
@@ -387,44 +357,26 @@ export function registerTodoTools(server: McpServer): void {
           finalContent = params.content;
         }
 
-        const response = await client.todos.update({
-          params: {
-            bucketId: params.bucket_id,
-            todoId: params.todo_id,
-          },
-          body: {
-            content: finalTitle,
-            ...(finalContent !== undefined
-              ? { description: finalContent }
-              : {}),
-            ...(params.assignee_ids !== undefined
-              ? { assignee_ids: params.assignee_ids }
-              : {}),
-            ...(params.due_on !== undefined
-              ? { due_on: params.due_on || null }
-              : {}),
-            ...(params.starts_on !== undefined
-              ? { starts_on: params.starts_on || null }
-              : {}),
-            ...(params.notify !== undefined ? { notify: params.notify } : {}),
-          },
+        const todo = await client.todos.update(params.todo_id, {
+          content: finalTitle,
+          ...(finalContent !== undefined ? { description: finalContent } : {}),
+          ...(params.assignee_ids !== undefined
+            ? { assigneeIds: params.assignee_ids }
+            : {}),
+          ...(params.due_on !== undefined ? { dueOn: params.due_on } : {}),
+          ...(params.starts_on !== undefined
+            ? { startsOn: params.starts_on }
+            : {}),
+          ...(params.notify !== undefined ? { notify: params.notify } : {}),
         });
-
-        if (response.status !== 200 || !response.body) {
-          throw new Error("Failed to update todo");
-        }
 
         return {
           content: [
             {
               type: "text",
-              text: `Todo updated!\n\nID: ${response.body.id}\nContent: ${response.body.content}${
-                response.body.due_on ? `\nDue: ${response.body.due_on}` : ""
-              }${
-                response.body.starts_on
-                  ? `\nStarts: ${response.body.starts_on}`
-                  : ""
-              }`,
+              text: `Todo updated!\n\nID: ${todo.id}\nContent: ${todo.content}${
+                todo.due_on ? `\nDue: ${todo.due_on}` : ""
+              }${todo.starts_on ? `\nStarts: ${todo.starts_on}` : ""}`,
             },
           ],
         };
