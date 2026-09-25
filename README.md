@@ -6,12 +6,12 @@
 
 Model Context Protocol (MCP) server for Basecamp. Gives LLMs tools for projects, messages, todos, comments, people, kanban boards, docs & files, check-ins, and campfire chat.
 
-47 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
+48 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
 
 ## Why this server
 
 - **Zero-install setup:** `npx basecamp-mcp@latest` runs the server directly from npm. Authentication is one MCP tool call (`basecamp_login`) that opens a browser; there's no separate script to clone and run by hand.
-- **Full Docs & Files support:** read and write vaults (folders), documents, and uploads, and download inline `<bc-attachment>` blobs embedded in rich text. Images come back inline, text files as text, everything else saved to disk.
+- **Full Docs & Files support:** read and write vaults (folders), documents, and uploads, and download inline `<bc-attachment>` blobs embedded in rich text. Images come back inline, text files as text, everything else saved to disk. Upload a local file or a remote URL to get the `sgid` that embeds it in rich text.
 - **Check-ins (Q&A) support:** list automatic check-in questions and their answers, or post new answers programmatically.
 - **Granular content editing:** messages, comments, documents, and kanban cards all support append, prepend, and search-replace operations, not just full-text replacement, so an LLM can make a small edit without resending the whole document.
 - **Cross-project activity feed:** `basecamp_list_recordings` searches across every project by type, person, date range, and free text in one call, with automatic response-size management and pagination.
@@ -139,6 +139,7 @@ The server requires these environment variables:
 - `basecamp_list_uploads` - List files uploaded to a vault
 - `basecamp_get_upload` - Retrieve an uploaded file: images are returned inline, text files as text, other binary formats saved to disk
 - `basecamp_download_blob` - Download an inline `<bc-attachment>` attachment referenced in document/message/comment HTML content
+- `basecamp_create_attachment` - Upload a local file or a remote URL and get the `attachable_sgid` to embed it with `<bc-attachment>`
 
 ### Check-ins (Q&A)
 - `basecamp_get_questionnaire` - Get a project's check-ins container

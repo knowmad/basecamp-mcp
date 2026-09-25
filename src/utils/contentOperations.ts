@@ -10,7 +10,7 @@ export const htmlRules = `
 HTML rules for content:
 
 * Allowed tags: p, span, h2, h3, h4, br, strong, em, strike, code, a (with href attribute), pre, ol, ul, li, blockquote, mark, figure, figcaption, table, tbody, tr, th, td, div, bc-attachment.
-* Use <p> for paragraphs. Use <p><br></p> for empty line spacing between paragraphs.
+* Wrap every paragraph in <p>...</p>, and put <p><br></p> between one paragraph and the next. Both parts are necessary: newlines and blank lines in your HTML are discarded, and Basecamp shows no space around a <p> on its own, so two paragraphs with nothing between them are shown as one block of text. Do not rely on line breaks in your HTML to separate paragraphs.
 * Headings: use <h2>, <h3>, <h4> as appropriate.
 * Inline code: <code>text</code>. Preformatted blocks: <pre>text</pre>.
 * Ordered lists: <ol><li>...</li></ol>. Unordered: <ul><li>...</li></ul>.
@@ -18,6 +18,7 @@ HTML rules for content:
 * To mention people: <bc-attachment sgid="{ person.attachable_sgid }" content-type="application/vnd.basecamp.mention"></bc-attachment>
 * Single image: <bc-attachment sgid="{ attachment.attachable_sgid }"></bc-attachment>
 * Image gallery: wrap multiple <bc-attachment sgid="..." presentation="gallery"> in a <div>.
+* A bc-attachment needs an attachable_sgid. For a file that is already in Basecamp, take the sgid from the HTML content of the message, comment or card that shows it, or use basecamp_list_recordings. For a file that is not in Basecamp yet, such as an image at an external URL or a screenshot on disk, upload it with basecamp_create_attachment and use the sgid that it returns. There is no <img> tag, so an external image URL can never be embedded directly: upload it, or accept that it stays a plain link.
 * Basecamp auto-enriches bc-attachment tags after saving (adds url, href, filename, content-type, etc.) — you never need to write those.
 * When you see an existing, already-enriched <bc-attachment> tag (e.g. from a previous list/get call), leave its inner HTML alone. Before any content_append/content_prepend/search_replace runs, it is automatically collapsed back to its minimal form (sgid, presentation, caption, and content-type for mentions) — you don't need to strip it yourself, and doing so manually is unnecessary and risks mismatched find strings.
 * Background highlights: <mark style="background-color: var(--highlight-bg-N);">...</mark>
