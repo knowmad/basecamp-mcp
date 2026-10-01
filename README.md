@@ -6,7 +6,7 @@
 
 Model Context Protocol (MCP) server for Basecamp. Gives LLMs tools for projects, messages, todos, comments, people, kanban boards, docs & files, check-ins, and campfire chat.
 
-48 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
+51 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
 
 ## Why this server
 
@@ -91,11 +91,13 @@ The server requires these environment variables:
 - `basecamp_get_project` - Get detailed project information including dock configuration
 
 ### Messages
-- `basecamp_list_messages` - List messages in a message board with optional filtering
+- `basecamp_list_messages` - List messages in a message board with optional filtering (includes draft/published status)
 - `basecamp_list_message_types` - List available message types/categories for a project
-- `basecamp_get_message` - Get single message details
-- `basecamp_create_message` - Create new message with optional category and draft status
-- `basecamp_update_message` - Update message with advanced content editing (supports full replacement, append, prepend, search/replace)
+- `basecamp_get_message` - Get single message details, including whether it is a draft
+- `basecamp_create_message` - Create new message with optional category; saved as a draft unless `status: "active"` is passed
+- `basecamp_update_message` - Update message with advanced content editing (supports full replacement, append, prepend, search/replace); never publishes
+- `basecamp_publish_message` - Publish a drafted message (posts it and notifies subscribers once; cannot be undone)
+- `basecamp_list_drafts` - List your unpublished drafts across projects (messages, documents, uploads, client approvals and correspondences)
 
 ### TODOs
 - `basecamp_get_todoset` - Get todo set container with all todo lists
@@ -133,9 +135,10 @@ The server requires these environment variables:
 - `basecamp_create_vault` - Create a new vault (folder)
 - `basecamp_update_vault` - Rename a vault
 - `basecamp_list_documents` - List documents in a vault, with optional title/content filtering
-- `basecamp_get_document` - Get a document's full HTML content
-- `basecamp_create_document` - Create a new document (active or draft)
-- `basecamp_update_document` - Update a document with advanced content editing (supports full replacement, append, prepend, search/replace)
+- `basecamp_get_document` - Get a document's full HTML content and draft/published status
+- `basecamp_create_document` - Create a new document; saved as a draft unless `status: "active"` is passed
+- `basecamp_update_document` - Update a document with advanced content editing (supports full replacement, append, prepend, search/replace); never publishes, and keeps the title or content you don't pass
+- `basecamp_publish_document` - Publish a drafted document (posts it and notifies subscribers once; cannot be undone)
 - `basecamp_list_uploads` - List files uploaded to a vault
 - `basecamp_get_upload` - Retrieve an uploaded file: images are returned inline, text files as text, other binary formats saved to disk
 - `basecamp_download_blob` - Download an inline `<bc-attachment>` attachment referenced in document/message/comment HTML content

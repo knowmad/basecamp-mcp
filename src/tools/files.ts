@@ -338,6 +338,8 @@ export function registerFilesTools(server: McpServer): void {
                 filtered.map((d) => ({
                   id: d.id,
                   title: d.title,
+                  status: d.status,
+                  inherits_status: d.inherits_status,
                   creator: serializePerson(d.creator),
                   created_at: d.created_at,
                   updated_at: d.updated_at,
@@ -362,7 +364,8 @@ export function registerFilesTools(server: McpServer): void {
     "basecamp_get_document",
     {
       title: "Get Basecamp Document",
-      description: "Retrieve a single document with its full content.",
+      description:
+        'Retrieve a single document with its full content. "status" is "drafted" for an unpublished draft (not posted, nobody notified) or "active" once published.',
       inputSchema: {
         document_id: BasecampIdSchema.describe("Document ID to retrieve"),
       },
@@ -387,6 +390,8 @@ export function registerFilesTools(server: McpServer): void {
                   id: doc.id,
                   title: doc.title,
                   content: doc.content || "",
+                  status: doc.status,
+                  inherits_status: doc.inherits_status,
                   author: serializePerson(doc.creator),
                   created_at: doc.created_at,
                   updated_at: doc.updated_at,
@@ -411,7 +416,7 @@ export function registerFilesTools(server: McpServer): void {
     "basecamp_create_document",
     {
       title: "Create Basecamp Document",
-      description: `Create a new document in a vault. ${htmlRules}`,
+      description: `Create a new document in a vault. By default the document is saved as an unpublished draft ("drafted"): it is not posted and notifies no one. Passing status "active" publishes immediately — it posts the document and notifies its subscribers, and cannot be undone. To publish a draft later, use basecamp_publish_document. ${htmlRules}`,
       inputSchema: {
         vault_id: BasecampIdSchema.describe(
           "Vault ID to create the document in",
@@ -420,9 +425,9 @@ export function registerFilesTools(server: McpServer): void {
         content: z.string().describe("HTML document content"),
         status: z
           .enum(["active", "drafted"])
-          .default("active")
+          .default("drafted")
           .describe(
-            `Document status. Use "active" to publish, "drafted" to save as an unpublished draft.`,
+            `Document status (default "drafted"). "drafted" saves an unpublished draft that notifies no one. "active" publishes now: it posts the document, notifies subscribers, and cannot be undone.`,
           ),
       },
       annotations: {
@@ -445,7 +450,7 @@ export function registerFilesTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Document created successfully!\n\nID: ${doc.id}\nTitle: ${doc.title}\nURL: ${doc.app_url}`,
+              text: `Document created successfully!\n\nID: ${doc.id}\nTitle: ${doc.title}\nStatus: ${doc.status}\nURL: ${doc.app_url}`,
             },
           ],
         };
@@ -462,7 +467,7 @@ export function registerFilesTools(server: McpServer): void {
     "basecamp_update_document",
     {
       title: "Update Basecamp Document",
-      description: `Update a document. Use partial content operations when possible to save on token usage. ${htmlRules}`,
+      description: `Update a document's title or content. Never changes publish status: editing a draft leaves it a draft, and nobody is notified. To publish a draft, use basecamp_publish_document. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         document_id: BasecampIdSchema.describe("Document ID to update"),
         title: z.string().min(1).optional().describe("New document title"),
@@ -480,33 +485,126 @@ export function registerFilesTools(server: McpServer): void {
         validateContentOperations(params, ["title"]);
 
         const client = await initializeBasecampClient();
-        let finalContent: string | undefined;
 
         const hasPartialOps =
           params.content_append ||
           params.content_prepend ||
           params.search_replace;
 
-        if (hasPartialOps || params.content !== undefined) {
-          if (hasPartialOps) {
-            const current = await client.documents.get(params.document_id);
-            const currentContent = current.content || "";
-            finalContent = applyContentOperations(currentContent, params);
-          } else {
-            finalContent = params.content;
-          }
+        // A document update REPLACES the document rather than merging (bc3-api
+        // documents.md "Publishing a draft"): an omitted title or content is
+        // cleared. Fetch the current document unless both are supplied, and
+        // always send both.
+        const needsCurrent =
+          hasPartialOps || !params.title || params.content === undefined;
+        const current = needsCurrent
+          ? await client.documents.get(params.document_id)
+          : undefined;
+        const currentContent = current?.content || "";
+
+        let finalContent: string;
+        if (hasPartialOps) {
+          finalContent =
+            applyContentOperations(currentContent, params) ?? currentContent;
+        } else if (params.content !== undefined) {
+          finalContent = params.content;
+        } else {
+          finalContent = currentContent;
         }
 
         const doc = await client.documents.update(params.document_id, {
-          ...(params.title ? { title: params.title } : {}),
-          ...(finalContent !== undefined ? { content: finalContent } : {}),
+          title: params.title || current?.title || "",
+          content: finalContent,
         });
 
         return {
           content: [
             {
               type: "text",
-              text: `Document updated successfully!\n\nID: ${doc.id}\nTitle: ${doc.title}`,
+              text: `Document updated successfully!\n\nID: ${doc.id}\nTitle: ${doc.title}\nStatus: ${doc.status}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_publish_document
+  server.registerTool(
+    "basecamp_publish_document",
+    {
+      title: "Publish Basecamp Document Draft",
+      description: `Publish a drafted document. This posts the document and notifies its subscribers, exactly once. It cannot be undone. Only call this when the user has explicitly asked to publish this specific document. Refuses (without changing anything) if the document is not currently a draft. The document's current title and content are kept as they are.`,
+      inputSchema: {
+        document_id: BasecampIdSchema.describe("ID of the drafted document"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+
+        const current = await client.documents.get(params.document_id);
+        if (current.status !== "drafted") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Not published: document ${current.id} has status "${current.status}", not "drafted". Nothing was changed.`,
+              },
+            ],
+          };
+        }
+
+        // Unlike a message, a document update replaces rather than merges: a
+        // status-only PUT is a 400, and omitted fields are cleared. Resend the
+        // current title and content with status "active". The SDK's
+        // documents.update() has no status field, so call the low-level client.
+        // NOTE: PUT /recordings/{id}/status/active.json is unarchive, not
+        // publish — never use it here.
+        const { data, error } = await (
+          client.PUT as unknown as (
+            path: string,
+            init: {
+              params: { path: { documentId: number } };
+              body: { title: string; content: string; status: "active" };
+            },
+          ) => Promise<{
+            data?: {
+              id: number;
+              title: string;
+              status: string;
+              app_url: string;
+            };
+            error?: unknown;
+          }>
+        )("/documents/{documentId}", {
+          params: { path: { documentId: params.document_id } },
+          body: {
+            title: current.title,
+            content: current.content || "",
+            status: "active",
+          },
+        });
+
+        if (error || !data) {
+          throw new Error("Failed to publish document");
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Document published.\n\nID: ${data.id}\nTitle: ${data.title}\nStatus: ${data.status}\nURL: ${data.app_url}`,
             },
           ],
         };

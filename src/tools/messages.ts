@@ -6,6 +6,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { DEFAULT_LIMIT, MAX_LIMIT } from "../constants.js";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
 import {
@@ -15,6 +16,7 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import { paginate } from "../utils/pagination.js";
 import { serializePerson } from "../utils/serializers.js";
 
 export function registerMessageTools(server: McpServer): void {
@@ -23,7 +25,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_get_message",
     {
       title: "Get Basecamp Message",
-      description: `Retrieve a single message from a Basecamp message board.`,
+      description: `Retrieve a single message from a Basecamp message board. "status" is "drafted" for an unpublished draft (not posted, nobody notified) or "active" once published.`,
       inputSchema: {
         message_id: BasecampIdSchema.describe("Message ID to retrieve"),
       },
@@ -48,6 +50,8 @@ export function registerMessageTools(server: McpServer): void {
                   id: msg.id,
                   subject: msg.title,
                   content: msg.content || "",
+                  status: msg.status,
+                  inherits_status: msg.inherits_status,
                   author: serializePerson(msg.creator),
                   created_at: msg.created_at,
                   updated_at: msg.updated_at,
@@ -111,6 +115,8 @@ export function registerMessageTools(server: McpServer): void {
                 filteredMessages.map((m) => ({
                   id: m.id,
                   title: m.title,
+                  status: m.status,
+                  inherits_status: m.inherits_status,
                   creator: serializePerson(m.creator),
                   created_at: m.created_at,
                 })),
@@ -206,7 +212,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_create_message",
     {
       title: "Create Basecamp Message",
-      description: `Create a new message in a Basecamp message board.`,
+      description: `Create a new message in a Basecamp message board. By default the message is saved as an unpublished draft ("drafted"): it is not posted and notifies no one. Passing status "active" publishes immediately — it posts the message and notifies every subscriber (when created, that is everyone on the project), and cannot be undone. To publish a draft later, use basecamp_publish_message.`,
       inputSchema: {
         message_board_id: BasecampIdSchema,
         subject: z.string().min(1).max(500).describe("Message subject/title"),
@@ -219,9 +225,9 @@ export function registerMessageTools(server: McpServer): void {
         ),
         status: z
           .enum(["active", "drafted"])
-          .default("active")
+          .default("drafted")
           .describe(
-            `Message status. Use "active" to publish, "drafted" to save as an unpublished draft.`,
+            `Message status (default "drafted"). "drafted" saves an unpublished draft that notifies no one. "active" publishes now: it posts the message, notifies subscribers, and cannot be undone.`,
           ),
       },
       annotations: {
@@ -245,7 +251,7 @@ export function registerMessageTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Message created successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nURL: ${message.app_url}`,
+              text: `Message created successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}\nURL: ${message.app_url}`,
             },
           ],
         };
@@ -261,7 +267,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_update_message",
     {
       title: "Update Basecamp Message",
-      description: `Update a message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
+      description: `Update a message's subject, category, or content. Never changes publish status: editing a draft leaves it a draft, and nobody is notified. To publish a draft, use basecamp_publish_message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         message_id: BasecampIdSchema,
         subject: z
@@ -320,7 +326,136 @@ export function registerMessageTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Message updated successfully!\n\nID: ${message.id}\nSubject: ${message.title}`,
+              text: `Message updated successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_publish_message
+  server.registerTool(
+    "basecamp_publish_message",
+    {
+      title: "Publish Basecamp Message Draft",
+      description: `Publish a drafted message. This posts the message to its message board and notifies its subscribers, exactly once. It cannot be undone. Only call this when the user has explicitly asked to publish this specific message. Refuses (without changing anything) if the message is not currently a draft.`,
+      inputSchema: {
+        message_id: BasecampIdSchema.describe("ID of the drafted message"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+
+        const current = await client.messages.get(params.message_id);
+        if (current.status !== "drafted") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Not published: message ${current.id} has status "${current.status}", not "drafted". Nothing was changed.`,
+              },
+            ],
+          };
+        }
+
+        // A message update merges, so the body is exactly {"status":"active"}
+        // (the SDK drops the undefined subject/content/category fields).
+        // NOTE: PUT /recordings/{id}/status/active.json is unarchive, not
+        // publish — never use it here.
+        const message = await client.messages.update(params.message_id, {
+          status: "active",
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Message published.\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}\nURL: ${message.app_url}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_list_drafts
+  server.registerTool(
+    "basecamp_list_drafts",
+    {
+      title: "List My Basecamp Drafts",
+      description: `List the current user's unpublished drafts across their active projects, most recently updated first: messages, documents, uploads, client approvals, and client correspondences. Every item returned is a draft (not posted, nobody notified). Not exhaustive: Google documents, cloud files, and schedule entries can also be drafted but are not listed here.`,
+      inputSchema: {
+        limit: z
+          .number()
+          .min(1)
+          .max(MAX_LIMIT)
+          .optional()
+          .describe(
+            `Maximum number of drafts to return (default: ${DEFAULT_LIMIT}, max: ${MAX_LIMIT}).`,
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+        const limit = params.limit || DEFAULT_LIMIT;
+
+        // SDK 0.7.3 has no drafts wrapper; page the endpoint directly.
+        const drafts: Draft[] = [];
+        for await (const draft of paginate<Draft>(
+          client,
+          "/my/drafts.json",
+          {},
+        )) {
+          drafts.push(draft);
+          if (drafts.length >= limit) break;
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                drafts.map((d) => ({
+                  id: d.id,
+                  type: d.type,
+                  title: d.title,
+                  bucket: d.bucket
+                    ? { id: d.bucket.id, name: d.bucket.name }
+                    : null,
+                  parent: d.parent
+                    ? { id: d.parent.id, title: d.parent.title }
+                    : null,
+                  excerpt: d.excerpt,
+                  updated_at: d.updated_at,
+                  scheduled_posting_at: d.scheduled_posting_at,
+                  url: d.app_url,
+                })),
+                null,
+                2,
+              ),
             },
           ],
         };
@@ -332,3 +467,17 @@ export function registerMessageTools(server: McpServer): void {
     },
   );
 }
+
+/** One entry from GET /my/drafts.json (shape per bc3-api sections/drafts.md). */
+type Draft = {
+  id: number;
+  type: string;
+  title: string;
+  app_url: string;
+  bucket?: { id: number; name: string } | null;
+  parent?: { id: number; title: string } | null;
+  excerpt?: string;
+  created_at?: string;
+  updated_at?: string;
+  scheduled_posting_at?: string | null;
+};
