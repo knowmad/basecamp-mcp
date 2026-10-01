@@ -462,7 +462,7 @@ export function registerFilesTools(server: McpServer): void {
     "basecamp_update_document",
     {
       title: "Update Basecamp Document",
-      description: `Update a document. Use partial content operations when possible to save on token usage. ${htmlRules}`,
+      description: `Update a document's title or content. Never changes publish status: editing a draft leaves it a draft, and nobody is notified. To publish a draft, use basecamp_publish_document. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         document_id: BasecampIdSchema.describe("Document ID to update"),
         title: z.string().min(1).optional().describe("New document title"),
@@ -507,6 +507,89 @@ export function registerFilesTools(server: McpServer): void {
             {
               type: "text",
               text: `Document updated successfully!\n\nID: ${doc.id}\nTitle: ${doc.title}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_publish_document
+  server.registerTool(
+    "basecamp_publish_document",
+    {
+      title: "Publish Basecamp Document Draft",
+      description: `Publish a drafted document. This posts the document and notifies its subscribers, exactly once. It cannot be undone. Only call this when the user has explicitly asked to publish this specific document. Refuses (without changing anything) if the document is not currently a draft. The document's current title and content are kept as they are.`,
+      inputSchema: {
+        document_id: BasecampIdSchema.describe("ID of the drafted document"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+
+        const current = await client.documents.get(params.document_id);
+        if (current.status !== "drafted") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Not published: document ${current.id} has status "${current.status}", not "drafted". Nothing was changed.`,
+              },
+            ],
+          };
+        }
+
+        // Unlike a message, a document update replaces rather than merges: a
+        // status-only PUT is a 400, and omitted fields are cleared. Resend the
+        // current title and content with status "active". The SDK's
+        // documents.update() has no status field, so call the low-level client.
+        // NOTE: PUT /recordings/{id}/status/active.json is unarchive, not
+        // publish — never use it here.
+        const { data, error } = await (
+          client.PUT as unknown as (
+            path: string,
+            init: {
+              params: { path: { documentId: number } };
+              body: { title: string; content: string; status: "active" };
+            },
+          ) => Promise<{
+            data?: {
+              id: number;
+              title: string;
+              status: string;
+              app_url: string;
+            };
+            error?: unknown;
+          }>
+        )("/documents/{documentId}", {
+          params: { path: { documentId: params.document_id } },
+          body: {
+            title: current.title,
+            content: current.content || "",
+            status: "active",
+          },
+        });
+
+        if (error || !data) {
+          throw new Error("Failed to publish document");
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Document published.\n\nID: ${data.id}\nTitle: ${data.title}\nStatus: ${data.status}\nURL: ${data.app_url}`,
             },
           ],
         };

@@ -261,7 +261,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_update_message",
     {
       title: "Update Basecamp Message",
-      description: `Update a message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
+      description: `Update a message's subject, category, or content. Never changes publish status: editing a draft leaves it a draft, and nobody is notified. To publish a draft, use basecamp_publish_message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         message_id: BasecampIdSchema,
         subject: z
@@ -321,6 +321,62 @@ export function registerMessageTools(server: McpServer): void {
             {
               type: "text",
               text: `Message updated successfully!\n\nID: ${message.id}\nSubject: ${message.title}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_publish_message
+  server.registerTool(
+    "basecamp_publish_message",
+    {
+      title: "Publish Basecamp Message Draft",
+      description: `Publish a drafted message. This posts the message to its message board and notifies its subscribers, exactly once. It cannot be undone. Only call this when the user has explicitly asked to publish this specific message. Refuses (without changing anything) if the message is not currently a draft.`,
+      inputSchema: {
+        message_id: BasecampIdSchema.describe("ID of the drafted message"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+
+        const current = await client.messages.get(params.message_id);
+        if (current.status !== "drafted") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Not published: message ${current.id} has status "${current.status}", not "drafted". Nothing was changed.`,
+              },
+            ],
+          };
+        }
+
+        // A message update merges, so the body is exactly {"status":"active"}
+        // (the SDK drops the undefined subject/content/category fields).
+        // NOTE: PUT /recordings/{id}/status/active.json is unarchive, not
+        // publish — never use it here.
+        const message = await client.messages.update(params.message_id, {
+          status: "active",
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Message published.\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}\nURL: ${message.app_url}`,
             },
           ],
         };
