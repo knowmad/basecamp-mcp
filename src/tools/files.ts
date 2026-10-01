@@ -7,11 +7,12 @@
  *   - Documents are rich-text documents stored inside vaults.
  *   - Uploads are files stored inside vaults.
  *   - Blobs are inline attachments embedded in rich text via <bc-attachment>.
+ *   - Attachments are files uploaded to get an sgid, to embed in rich text.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
@@ -796,6 +797,124 @@ export function registerFilesTools(server: McpServer): void {
             {
               type: "text" as const,
               text: `Downloaded ${params.filename} (${contentType}, ${bytes.byteLength} bytes) and saved to: ${filePath}\n\nUse the file path to read it.`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // ===== ATTACHMENTS (uploads for embedding in rich text) =====
+
+  // basecamp_create_attachment
+  server.registerTool(
+    "basecamp_create_attachment",
+    {
+      title: "Create Basecamp Attachment",
+      description:
+        'Upload a file to Basecamp and get the attachable_sgid needed to embed it in rich text. Use this when you want to show an image or a video in a message, comment, document, card or todo, and that file is not in Basecamp yet — for example an image at an external URL, or a screenshot on disk. Give either file_path or url. The returned sgid goes into a <bc-attachment sgid="..." caption="..."></bc-attachment> tag. An sgid is tied to this account and does not expire, but it is only shown once here, so embed it in the same session.',
+      inputSchema: {
+        file_path: z
+          .string()
+          .optional()
+          .describe(
+            "Absolute path of a local file to upload. Give either this or url.",
+          ),
+        url: z
+          .string()
+          .optional()
+          .describe(
+            "URL of a file to download and then upload to Basecamp. The URL must be publicly readable. Give either this or file_path.",
+          ),
+        name: z
+          .string()
+          .optional()
+          .describe(
+            'Filename to store in Basecamp, with its extension (e.g. "before-after.png"). Defaults to the last part of file_path or url. Basecamp shows this name as the caption when the attachment has no caption attribute.',
+          ),
+        content_type: z
+          .string()
+          .optional()
+          .describe(
+            'MIME type of the file (e.g. "image/png"). Defaults to a type inferred from the filename.',
+          ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        if (params.file_path && params.url) {
+          throw new Error("Give file_path or url, but not both.");
+        }
+
+        if (!params.file_path && !params.url) {
+          throw new Error("Give either file_path or url.");
+        }
+
+        let bytes: Uint8Array;
+        let sourceName: string;
+
+        if (params.file_path) {
+          bytes = new Uint8Array(readFileSync(params.file_path));
+          sourceName = basename(params.file_path);
+        } else {
+          const url = params.url as string;
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            throw new Error(
+              `Could not download ${url}: ${response.status} ${response.statusText}`,
+            );
+          }
+
+          bytes = new Uint8Array(await response.arrayBuffer());
+          sourceName = basename(new URL(url).pathname) || "attachment";
+        }
+
+        if (bytes.byteLength === 0) {
+          throw new Error("The file is empty, so there is nothing to upload.");
+        }
+
+        const name = params.name || sourceName;
+        const contentType = params.content_type || inferContentType(name);
+
+        const client = await initializeBasecampClient();
+        const result = await client.attachments.create(
+          bytes,
+          contentType,
+          name,
+        );
+
+        if (!result.attachable_sgid) {
+          throw new Error(
+            "Basecamp accepted the upload but returned no attachable_sgid.",
+          );
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  attachable_sgid: result.attachable_sgid,
+                  name,
+                  content_type: contentType,
+                  size_bytes: bytes.byteLength,
+                  usage: `<bc-attachment sgid="${result.attachable_sgid}" caption="Describe the image here"></bc-attachment>`,
+                },
+                null,
+                2,
+              ),
             },
           ],
         };

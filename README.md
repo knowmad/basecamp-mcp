@@ -1,6 +1,22 @@
 # Basecamp MCP Server
 
-Model Context Protocol (MCP) server for Basecamp integration. Enables LLMs to interact with Basecamp projects, messages, todos, comments, people, and kanban boards.
+[![npm version](https://img.shields.io/npm/v/basecamp-mcp.svg)](https://www.npmjs.com/package/basecamp-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/basecamp-mcp.svg)](https://www.npmjs.com/package/basecamp-mcp)
+[![license](https://img.shields.io/npm/l/basecamp-mcp.svg)](LICENSE)
+
+Model Context Protocol (MCP) server for Basecamp. Gives LLMs tools for projects, messages, todos, comments, people, kanban boards, docs & files, check-ins, and campfire chat.
+
+48 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
+
+## Why this server
+
+- **Zero-install setup:** `npx basecamp-mcp@latest` runs the server directly from npm. Authentication is one MCP tool call (`basecamp_login`) that opens a browser; there's no separate script to clone and run by hand.
+- **Full Docs & Files support:** read and write vaults (folders), documents, and uploads, and download inline `<bc-attachment>` blobs embedded in rich text. Images come back inline, text files as text, everything else saved to disk. Upload a local file or a remote URL to get the `sgid` that embeds it in rich text.
+- **Check-ins (Q&A) support:** list automatic check-in questions and their answers, or post new answers programmatically.
+- **Granular content editing:** messages, comments, documents, and kanban cards all support append, prepend, and search-replace operations, not just full-text replacement, so an LLM can make a small edit without resending the whole document.
+- **Cross-project activity feed:** `basecamp_list_recordings` searches across every project by type, person, date range, and free text in one call, with automatic response-size management and pagination.
+- **Type-safe end to end:** written in TypeScript with Zod schemas validating every tool input.
+- **Tested against the real API:** the test suite exercises every tool category (messages, todos, kanban, comments, docs/files, check-ins, campfires, activity) against a live Basecamp account, not mocks.
 
 ## Getting Started
 
@@ -49,7 +65,7 @@ code --add-mcp '{"name":"basecamp","command":"npx","args":["-y", "basecamp-mcp@l
 
 Once the MCP server is running, authenticate using the built-in login tool:
 
-1. Call `basecamp_login` — a browser window will open for Basecamp authorization
+1. Call `basecamp_login` to open a browser window for Basecamp authorization
 2. Authorize the app in your browser
 3. If you have multiple Basecamp accounts, call `basecamp_login` again with the desired `account_id`
 4. Done! Credentials are saved to `~/.config/basecamp-mcp/credentials.json`
@@ -85,6 +101,7 @@ The server requires these environment variables:
 - `basecamp_get_todoset` - Get todo set container with all todo lists
 - `basecamp_list_todos` - List todos in a list with status filtering (active/archived)
 - `basecamp_create_todo` - Create new todo with optional description
+- `basecamp_update_todo` - Update a todo's title, description, due date, or assignees
 - `basecamp_complete_todo` - Mark todo as complete
 - `basecamp_uncomplete_todo` - Mark todo as incomplete
 
@@ -110,6 +127,28 @@ The server requires these environment variables:
 - `basecamp_list_recordings` - Browse recent activity globally or across specific projects, with filtering by type, date range, person, and text search. All filters support multiple values for OR-matching (e.g., multiple project IDs, person IDs, types, or search terms)
 - `basecamp_list_campfire_messages` - Browse chat messages from Campfires with filtering by campfire, person, text content, and date range. All filters support multiple values for OR-matching
 
+### Docs & Files
+- `basecamp_list_vaults` - List sub-vaults (folders) under a parent vault
+- `basecamp_get_vault` - Get a vault's details, including document/upload/sub-vault counts
+- `basecamp_create_vault` - Create a new vault (folder)
+- `basecamp_update_vault` - Rename a vault
+- `basecamp_list_documents` - List documents in a vault, with optional title/content filtering
+- `basecamp_get_document` - Get a document's full HTML content
+- `basecamp_create_document` - Create a new document (active or draft)
+- `basecamp_update_document` - Update a document with advanced content editing (supports full replacement, append, prepend, search/replace)
+- `basecamp_list_uploads` - List files uploaded to a vault
+- `basecamp_get_upload` - Retrieve an uploaded file: images are returned inline, text files as text, other binary formats saved to disk
+- `basecamp_download_blob` - Download an inline `<bc-attachment>` attachment referenced in document/message/comment HTML content
+- `basecamp_create_attachment` - Upload a local file or a remote URL and get the `attachable_sgid` to embed it with `<bc-attachment>`
+
+### Check-ins (Q&A)
+- `basecamp_get_questionnaire` - Get a project's check-ins container
+- `basecamp_list_questions` - List automatic check-in questions with schedule and answer counts
+- `basecamp_get_question` - Get a single check-in question
+- `basecamp_list_answers` - List answers to a check-in question
+- `basecamp_get_answer` - Get a single check-in answer
+- `basecamp_create_answer` - Post a new answer to a check-in question
+
 ## Development
 
 ```bash
@@ -121,6 +160,9 @@ npx tsc --noEmit
 
 # Build
 npm run build
+
+# Run the live test suite (requires a real, authenticated Basecamp account)
+npm test
 
 # Clean build artifacts
 npm run clean

@@ -17,7 +17,7 @@ This document provides comprehensive guidance for AI agents (like Claude) workin
 
 ### Key Features
 
-- **24 MCP Tools** organized into 6 categories: Projects, Messages, TODOs, Comments, People, and Kanban
+- **MCP Tools** grouped by domain, one file per group in `src/tools/`
 - **Advanced content operations**: append, prepend, search-replace for rich text editing
 - **Complete step management**: Array-based step operations (create, update, delete, reposition) for kanban cards
 - **Response size management**: 25K character limit with pagination support
@@ -51,13 +51,19 @@ basecamp-mcp/
 │   ├── index.ts                  # Main entry point - server initialization
 │   ├── types.ts                  # TypeScript interfaces and types
 │   ├── constants.ts              # Shared constants (limits, URLs)
-│   ├── tools/                    # MCP tool implementations (6 categories)
-│   │   ├── projects.ts           # Project operations (2 tools, 141 lines)
-│   │   ├── messages.ts           # Message board operations (5 tools, 369 lines)
-│   │   ├── todos.ts              # Todo management (5 tools, 263 lines)
-│   │   ├── comments.ts           # Universal commenting (3 tools, 222 lines)
-│   │   ├── people.ts             # User management (3 tools, 183 lines)
-│   │   └── kanban.ts             # Kanban board operations (6 tools, 710 lines)
+│   ├── tools/                    # MCP tool implementations, one file per domain
+│   │   ├── activity.ts           # Cross-project activity feed, from recordings
+│   │   ├── auth.ts               # Login, logout and the current account
+│   │   ├── campfires.ts          # Campfire chat rooms
+│   │   ├── checkins.ts           # Automatic check-in questions and answers
+│   │   ├── comments.ts           # Universal commenting
+│   │   ├── files.ts              # Docs & Files: vaults, documents, uploads,
+│   │   │                         #   blobs and attachments
+│   │   ├── kanban.ts             # Kanban board operations
+│   │   ├── messages.ts           # Message board operations
+│   │   ├── people.ts             # User management
+│   │   ├── projects.ts           # Project operations
+│   │   └── todos.ts              # Todo management
 │   ├── utils/                    # Cross-cutting utility functions
 │   │   ├── auth.ts               # OAuth authentication & client setup with token caching
 │   │   ├── errorHandlers.ts      # API error handling with user-friendly messages
@@ -592,35 +598,38 @@ node run-evaluation.js
 
 ### Available Tool Categories
 
-1. **Projects (2 tools)**:
+This list is not complete, and the tools in `src/tools/` are the only reliable
+source. Read that directory when you need the current set.
+
+1. **Projects**:
    - `basecamp_list_projects`: List all projects with optional filtering
    - `basecamp_get_project`: Get detailed project information
 
-2. **Messages (5 tools)**:
+2. **Messages**:
    - `basecamp_list_messages`: List messages with filtering
    - `basecamp_list_message_types`: Get available message categories
    - `basecamp_get_message`: Retrieve single message
    - `basecamp_create_message`: Create new message
    - `basecamp_update_message`: Update message with content operations
 
-3. **TODOs (5 tools)**:
+3. **TODOs**:
    - `basecamp_get_todoset`: Get todo set container
    - `basecamp_list_todos`: List todos with status filtering
    - `basecamp_create_todo`: Create new todo
    - `basecamp_complete_todo`: Mark complete
    - `basecamp_uncomplete_todo`: Mark incomplete
 
-4. **Comments (3 tools)**:
+4. **Comments**:
    - `basecamp_list_comments`: List comments on any resource
    - `basecamp_create_comment`: Add comment to resource
    - `basecamp_update_comment`: Update comment with content operations
 
-5. **People (3 tools)**:
+5. **People**:
    - `basecamp_get_me`: Get authenticated user info
    - `basecamp_list_people`: List people with filtering
    - `basecamp_get_person`: Get person details
 
-6. **Kanban (6 tools)**:
+6. **Kanban**:
    - `basecamp_list_kanban_columns`: List board columns
    - `basecamp_list_kanban_cards`: List column cards
    - `basecamp_get_kanban_card`: Get card details
