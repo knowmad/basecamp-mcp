@@ -59,4 +59,13 @@ describe("publish tool contracts (offline)", () => {
       expect(Object.keys(props)).not.toContain("status");
     },
   );
+
+  it.each(["basecamp_create_message", "basecamp_create_document"])(
+    "%s defaults status to drafted",
+    (name) => {
+      const status = tool(name).inputSchema.properties?.status;
+      expect(status?.default).toBe("drafted");
+      expect(tool(name).description).toMatch(/cannot be undone/);
+    },
+  );
 });

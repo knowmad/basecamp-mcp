@@ -206,7 +206,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_create_message",
     {
       title: "Create Basecamp Message",
-      description: `Create a new message in a Basecamp message board.`,
+      description: `Create a new message in a Basecamp message board. By default the message is saved as an unpublished draft ("drafted"): it is not posted and notifies no one. Passing status "active" publishes immediately — it posts the message and notifies every subscriber (when created, that is everyone on the project), and cannot be undone. To publish a draft later, use basecamp_publish_message.`,
       inputSchema: {
         message_board_id: BasecampIdSchema,
         subject: z.string().min(1).max(500).describe("Message subject/title"),
@@ -219,9 +219,9 @@ export function registerMessageTools(server: McpServer): void {
         ),
         status: z
           .enum(["active", "drafted"])
-          .default("active")
+          .default("drafted")
           .describe(
-            `Message status. Use "active" to publish, "drafted" to save as an unpublished draft.`,
+            `Message status (default "drafted"). "drafted" saves an unpublished draft that notifies no one. "active" publishes now: it posts the message, notifies subscribers, and cannot be undone.`,
           ),
       },
       annotations: {

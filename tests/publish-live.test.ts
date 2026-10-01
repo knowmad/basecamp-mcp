@@ -119,3 +119,36 @@ describe("basecamp_publish_document (live)", () => {
     expect(again).toContain("Not published");
   });
 });
+
+describe("create defaults to a draft (live)", () => {
+  it("a message created without status is a draft until published", async () => {
+    const created = await mcp.text("basecamp_create_message", {
+      message_board_id: messageBoardId,
+      subject: `MCP default draft ${Date.now()}`,
+      content: "<div>Created without a status.</div>",
+    });
+    const id = extractId(created);
+    toTrash.push(id);
+
+    // Publish only succeeds on a draft, so this proves the default.
+    const published = await mcp.text("basecamp_publish_message", {
+      message_id: id,
+    });
+    expect(published).toContain("Message published.");
+  });
+
+  it("a document created without status is a draft until published", async () => {
+    const created = await mcp.text("basecamp_create_document", {
+      vault_id: vaultId,
+      title: `MCP default draft doc ${Date.now()}`,
+      content: "<div>Created without a status.</div>",
+    });
+    const id = extractId(created);
+    toTrash.push(id);
+
+    const published = await mcp.text("basecamp_publish_document", {
+      document_id: id,
+    });
+    expect(published).toContain("Document published.");
+  });
+});

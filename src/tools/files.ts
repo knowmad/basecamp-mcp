@@ -411,7 +411,7 @@ export function registerFilesTools(server: McpServer): void {
     "basecamp_create_document",
     {
       title: "Create Basecamp Document",
-      description: `Create a new document in a vault. ${htmlRules}`,
+      description: `Create a new document in a vault. By default the document is saved as an unpublished draft ("drafted"): it is not posted and notifies no one. Passing status "active" publishes immediately — it posts the document and notifies its subscribers, and cannot be undone. To publish a draft later, use basecamp_publish_document. ${htmlRules}`,
       inputSchema: {
         vault_id: BasecampIdSchema.describe(
           "Vault ID to create the document in",
@@ -420,9 +420,9 @@ export function registerFilesTools(server: McpServer): void {
         content: z.string().describe("HTML document content"),
         status: z
           .enum(["active", "drafted"])
-          .default("active")
+          .default("drafted")
           .describe(
-            `Document status. Use "active" to publish, "drafted" to save as an unpublished draft.`,
+            `Document status (default "drafted"). "drafted" saves an unpublished draft that notifies no one. "active" publishes now: it posts the document, notifies subscribers, and cannot be undone.`,
           ),
       },
       annotations: {
