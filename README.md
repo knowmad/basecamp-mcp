@@ -6,7 +6,7 @@
 
 Model Context Protocol (MCP) server for Basecamp. Gives LLMs tools for projects, messages, todos, comments, people, kanban boards, docs & files, check-ins, and campfire chat.
 
-48 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
+49 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
 
 ## Why this server
 
@@ -126,6 +126,7 @@ The server requires these environment variables:
 ### Activity
 - `basecamp_list_recordings` - Browse recent activity globally or across specific projects, with filtering by type, date range, person, and text search. All filters support multiple values for OR-matching (e.g., multiple project IDs, person IDs, types, or search terms)
 - `basecamp_list_campfire_messages` - Browse chat messages from Campfires with filtering by campfire, person, text content, and date range. All filters support multiple values for OR-matching
+- `basecamp_list_drafts` - List your unpublished drafts across projects (messages, documents, uploads, client approvals and correspondences)
 
 ### Docs & Files
 - `basecamp_list_vaults` - List sub-vaults (folders) under a parent vault
