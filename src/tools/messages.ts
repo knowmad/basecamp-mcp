@@ -23,7 +23,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_get_message",
     {
       title: "Get Basecamp Message",
-      description: `Retrieve a single message from a Basecamp message board.`,
+      description: `Retrieve a single message from a Basecamp message board. "status" is "drafted" for an unpublished draft (not posted, nobody notified) or "active" once published.`,
       inputSchema: {
         message_id: BasecampIdSchema.describe("Message ID to retrieve"),
       },
@@ -48,6 +48,8 @@ export function registerMessageTools(server: McpServer): void {
                   id: msg.id,
                   subject: msg.title,
                   content: msg.content || "",
+                  status: msg.status,
+                  inherits_status: msg.inherits_status,
                   author: serializePerson(msg.creator),
                   created_at: msg.created_at,
                   updated_at: msg.updated_at,
@@ -111,6 +113,8 @@ export function registerMessageTools(server: McpServer): void {
                 filteredMessages.map((m) => ({
                   id: m.id,
                   title: m.title,
+                  status: m.status,
+                  inherits_status: m.inherits_status,
                   creator: serializePerson(m.creator),
                   created_at: m.created_at,
                 })),
@@ -245,7 +249,7 @@ export function registerMessageTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Message created successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nURL: ${message.app_url}`,
+              text: `Message created successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}\nURL: ${message.app_url}`,
             },
           ],
         };
@@ -320,7 +324,7 @@ export function registerMessageTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Message updated successfully!\n\nID: ${message.id}\nSubject: ${message.title}`,
+              text: `Message updated successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}`,
             },
           ],
         };
