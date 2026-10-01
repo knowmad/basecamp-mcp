@@ -21,6 +21,8 @@ type Document = {
   id: number;
   title: string;
   content: string;
+  status?: string;
+  inherits_status?: boolean;
 };
 
 type Upload = {
@@ -128,6 +130,8 @@ describe("Basecamp Docs & Files via MCP tools (live)", () => {
     expect(doc.id).toBe(docId);
     expect(doc.title).toBe(docTitle);
     expect(doc.content).toContain("Initial document body.");
+    expect(["active", "drafted"]).toContain(doc.status);
+    expect(typeof doc.inherits_status).toBe("boolean");
 
     // LIST — our document is present in the vault
     const docs = await mcp.json<Array<{ id: number }>>(

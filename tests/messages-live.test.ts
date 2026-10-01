@@ -12,6 +12,8 @@ type Message = {
   id: number;
   subject: string;
   content: string;
+  status?: string;
+  inherits_status?: boolean;
   author?: { id: number; name: string } | null;
   created_at?: string;
   updated_at?: string;
@@ -21,6 +23,7 @@ type Message = {
 type MessageListItem = {
   id: number;
   title: string;
+  status?: string;
 };
 
 type Category = { id: number; name: string };
@@ -84,6 +87,7 @@ describe("Basecamp message board via MCP tools (live)", () => {
       ...(categoryId ? { message_type_id: categoryId } : {}),
     });
     expect(createText).toContain("Message created successfully!");
+    expect(createText).toContain("Status: active");
     expect(createText).toContain("ID:");
     const messageId = extractId(createText);
     toTrash.push(messageId);
@@ -97,6 +101,8 @@ describe("Basecamp message board via MCP tools (live)", () => {
     expect(message.id).toBe(messageId);
     expect(message.subject).toContain(subject);
     expect(message.content).toContain("Automated message for the MCP");
+    expect(message.status).toBe("active");
+    expect(typeof message.inherits_status).toBe("boolean");
 
     // LIST — created message is present (proves it is active/visible)
     const messages = await mcp.json<MessageListItem[]>(
@@ -106,7 +112,12 @@ describe("Basecamp message board via MCP tools (live)", () => {
       },
     );
     expect(
-      messages.some((m) => m.id === messageId && m.title.includes(subject)),
+      messages.some(
+        (m) =>
+          m.id === messageId &&
+          m.title.includes(subject) &&
+          m.status === "active",
+      ),
     ).toBe(true);
 
     // UPDATE — full subject + content replacement

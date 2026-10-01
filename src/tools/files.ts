@@ -338,6 +338,8 @@ export function registerFilesTools(server: McpServer): void {
                 filtered.map((d) => ({
                   id: d.id,
                   title: d.title,
+                  status: d.status,
+                  inherits_status: d.inherits_status,
                   creator: serializePerson(d.creator),
                   created_at: d.created_at,
                   updated_at: d.updated_at,
@@ -362,7 +364,8 @@ export function registerFilesTools(server: McpServer): void {
     "basecamp_get_document",
     {
       title: "Get Basecamp Document",
-      description: "Retrieve a single document with its full content.",
+      description:
+        'Retrieve a single document with its full content. "status" is "drafted" for an unpublished draft (not posted, nobody notified) or "active" once published.',
       inputSchema: {
         document_id: BasecampIdSchema.describe("Document ID to retrieve"),
       },
@@ -387,6 +390,8 @@ export function registerFilesTools(server: McpServer): void {
                   id: doc.id,
                   title: doc.title,
                   content: doc.content || "",
+                  status: doc.status,
+                  inherits_status: doc.inherits_status,
                   author: serializePerson(doc.creator),
                   created_at: doc.created_at,
                   updated_at: doc.updated_at,
@@ -445,7 +450,7 @@ export function registerFilesTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: `Document created successfully!\n\nID: ${doc.id}\nTitle: ${doc.title}\nURL: ${doc.app_url}`,
+              text: `Document created successfully!\n\nID: ${doc.id}\nTitle: ${doc.title}\nStatus: ${doc.status}\nURL: ${doc.app_url}`,
             },
           ],
         };
