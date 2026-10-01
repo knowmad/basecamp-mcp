@@ -480,26 +480,36 @@ export function registerFilesTools(server: McpServer): void {
         validateContentOperations(params, ["title"]);
 
         const client = await initializeBasecampClient();
-        let finalContent: string | undefined;
 
         const hasPartialOps =
           params.content_append ||
           params.content_prepend ||
           params.search_replace;
 
-        if (hasPartialOps || params.content !== undefined) {
-          if (hasPartialOps) {
-            const current = await client.documents.get(params.document_id);
-            const currentContent = current.content || "";
-            finalContent = applyContentOperations(currentContent, params);
-          } else {
-            finalContent = params.content;
-          }
+        // A document update REPLACES the document rather than merging (bc3-api
+        // documents.md "Publishing a draft"): an omitted title or content is
+        // cleared. Fetch the current document unless both are supplied, and
+        // always send both.
+        const needsCurrent =
+          hasPartialOps || !params.title || params.content === undefined;
+        const current = needsCurrent
+          ? await client.documents.get(params.document_id)
+          : undefined;
+        const currentContent = current?.content || "";
+
+        let finalContent: string;
+        if (hasPartialOps) {
+          finalContent =
+            applyContentOperations(currentContent, params) ?? currentContent;
+        } else if (params.content !== undefined) {
+          finalContent = params.content;
+        } else {
+          finalContent = currentContent;
         }
 
         const doc = await client.documents.update(params.document_id, {
-          ...(params.title ? { title: params.title } : {}),
-          ...(finalContent !== undefined ? { content: finalContent } : {}),
+          title: params.title || current?.title || "",
+          content: finalContent,
         });
 
         return {
