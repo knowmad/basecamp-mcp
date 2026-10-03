@@ -480,26 +480,13 @@ export function registerFilesTools(server: McpServer): void {
         validateContentOperations(params, ["title"]);
 
         const client = await initializeBasecampClient();
-        let finalContent: string | undefined;
 
-        const hasPartialOps =
-          params.content_append ||
-          params.content_prepend ||
-          params.search_replace;
-
-        if (hasPartialOps || params.content !== undefined) {
-          if (hasPartialOps) {
-            const current = await client.documents.get(params.document_id);
-            const currentContent = current.content || "";
-            finalContent = applyContentOperations(currentContent, params);
-          } else {
-            finalContent = params.content;
-          }
-        }
-
-        const doc = await client.documents.update(params.document_id, {
-          ...(params.title ? { title: params.title } : {}),
-          ...(finalContent !== undefined ? { content: finalContent } : {}),
+        // The SDK reads the current document, and then sends all the fields.
+        // Thus, partial content operations need no separate read.
+        const doc = await client.documents.edit(params.document_id, (d) => {
+          if (params.title) d.title = params.title;
+          const content = applyContentOperations(d.content, params);
+          if (content !== undefined) d.content = content;
         });
 
         return {
