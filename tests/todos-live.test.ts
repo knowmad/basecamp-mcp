@@ -342,6 +342,14 @@ describe("Basecamp todo ordering via MCP tools (live)", () => {
     return ids;
   }
 
+  async function createGroup(listId: number, name: string): Promise<number> {
+    const text = await mcp.text("basecamp_create_todolist_group", {
+      todolist_id: listId,
+      name,
+    });
+    return extractId(text);
+  }
+
   async function todoOrder(parentId: number): Promise<number[]> {
     const client = await initializeBasecampClient();
     return (await client.todos.list(parentId)).map((todo) => todo.id);
@@ -374,30 +382,27 @@ describe("Basecamp todo ordering via MCP tools (live)", () => {
 
     // Move into a group with destination_id, then next to a todo in the
     // group without destination_id: the tool finds the group by itself.
-    const client = await initializeBasecampClient();
-    const group = await client.todolistGroups.create(listId, {
-      name: "Section",
-    });
+    const groupId = await createGroup(listId, "Section");
     const intoGroup = await mcp.text("basecamp_move_todo", {
       todo_id: t2,
       placement: "bottom",
-      destination_id: group.id,
+      destination_id: groupId,
     });
-    expect(intoGroup).toContain(`(ID: ${group.id})`);
+    expect(intoGroup).toContain(`(ID: ${groupId})`);
     await mcp.text("basecamp_move_todo", {
       todo_id: t1,
       placement: "before",
       relative_to_id: t2,
     });
-    expect(await todoOrder(group.id)).toEqual([t1, t2]);
+    expect(await todoOrder(groupId)).toEqual([t1, t2]);
     expect(await todoOrder(listId)).toEqual([t3]);
 
     // list_todos shows the group IDs.
     const listed = await mcp.json<TodoList>("basecamp_list_todos", {
       todolist_id: listId,
     });
-    expect(listed.todos.find((t) => t.id === t2)?.group_id).toBe(group.id);
-    expect(listed.groups).toEqual([{ id: group.id, name: "Section" }]);
+    expect(listed.todos.find((t) => t.id === t2)?.group_id).toBe(groupId);
+    expect(listed.groups).toEqual([{ id: groupId, name: "Section" }]);
   });
 
   it("rejects a move with a wrong placement", async () => {
@@ -468,9 +473,9 @@ describe("Basecamp todo ordering via MCP tools (live)", () => {
     expect((await ours())[0]).toBe(b);
 
     // A group is not a todo list.
-    const group = await client.todolistGroups.create(a, { name: "Section" });
+    const groupId = await createGroup(a, "Section");
     const wrongKind = await mcp.call("basecamp_move_todolist", {
-      todolist_id: group.id,
+      todolist_id: groupId,
       placement: "top",
     });
     expect(wrongKind.content[0].text).toContain("is a group");
@@ -479,30 +484,107 @@ describe("Basecamp todo ordering via MCP tools (live)", () => {
   it("moves a group among the groups of its todo list", async () => {
     const listId = await createList("MCP group list");
     const client = await initializeBasecampClient();
-    const g1 = await client.todolistGroups.create(listId, { name: "G1" });
-    const g2 = await client.todolistGroups.create(listId, { name: "G2" });
-    const g3 = await client.todolistGroups.create(listId, { name: "G3" });
+    const g1 = await createGroup(listId, "G1");
+    const g2 = await createGroup(listId, "G2");
+    const g3 = await createGroup(listId, "G3");
     const groupOrder = async () =>
       (await client.todolistGroups.list(listId)).map((group) => group.id);
 
     const text = await mcp.text("basecamp_move_todolist_group", {
-      group_id: g1.id,
+      group_id: g1,
       placement: "after",
-      relative_to_id: g3.id,
+      relative_to_id: g3,
     });
     expect(text).toContain("Position: 3 of 3");
-    expect(await groupOrder()).toEqual([g2.id, g3.id, g1.id]);
+    expect(await groupOrder()).toEqual([g2, g3, g1]);
 
     await mcp.text("basecamp_move_todolist_group", {
-      group_id: g3.id,
+      group_id: g3,
       placement: "top",
     });
-    expect(await groupOrder()).toEqual([g3.id, g2.id, g1.id]);
+    expect(await groupOrder()).toEqual([g3, g2, g1]);
 
     const wrongKind = await mcp.call("basecamp_move_todolist_group", {
       group_id: listId,
       placement: "top",
     });
     expect(wrongKind.content[0].text).toContain("is a todo list");
+  });
+  it("creates groups at a placement, and updates a group", async () => {
+    const listId = await createList("MCP create group list");
+    const client = await initializeBasecampClient();
+    const groupOrder = async () =>
+      (await client.todolistGroups.list(listId)).map((group) => group.id);
+
+    const bottomText = await mcp.text("basecamp_create_todolist_group", {
+      todolist_id: listId,
+      name: "Development",
+    });
+    expect(bottomText).toContain("Group created!");
+    expect(bottomText).toContain("Position: 1 of 1");
+    const development = extractId(bottomText);
+
+    const topText = await mcp.text("basecamp_create_todolist_group", {
+      todolist_id: listId,
+      name: "Design",
+      placement: "top",
+    });
+    expect(topText).toContain("Position: 1 of 2");
+    const design = extractId(topText);
+
+    const afterText = await mcp.text("basecamp_create_todolist_group", {
+      todolist_id: listId,
+      name: "Review",
+      placement: "after",
+      relative_to_id: design,
+    });
+    const review = extractId(afterText);
+    expect(await groupOrder()).toEqual([design, review, development]);
+
+    // A todo can be created directly in a group.
+    const todoText = await mcp.text("basecamp_create_todo", {
+      todolist_id: design,
+      title: "Draw the mockups",
+    });
+    expect(await todoOrder(design)).toEqual([extractId(todoText)]);
+
+    // basecamp_update_todolist also updates a group.
+    const updateText = await mcp.text("basecamp_update_todolist", {
+      todolist_id: review,
+      name: "Code review",
+      content: "<div>Two people must approve.</div>",
+    });
+    expect(updateText).toContain("Name: Code review");
+    await mcp.text("basecamp_update_todolist", {
+      todolist_id: review,
+      content_append: "<div>Appended.</div>",
+    });
+    const raw = await client.todolists.get(review);
+    expect(raw.name).toBe("Code review");
+    expect(raw.description ?? "").toContain("Two people must approve.");
+    expect(raw.description ?? "").toContain("Appended.");
+  });
+
+  it("creates no group when the request is wrong", async () => {
+    const listId = await createList("MCP bad group list");
+    const groupId = await createGroup(listId, "Only group");
+    const client = await initializeBasecampClient();
+
+    const badReference = await mcp.call("basecamp_create_todolist_group", {
+      todolist_id: listId,
+      name: "Stray",
+      placement: "after",
+      relative_to_id: listId,
+    });
+    expect(badReference.content[0].text).toContain("is not in the destination");
+
+    const nested = await mcp.call("basecamp_create_todolist_group", {
+      todolist_id: groupId,
+      name: "Nested",
+    });
+    expect(nested.content[0].text).toContain("cannot contain groups");
+
+    const groups = await client.todolistGroups.list(listId);
+    expect(groups.map((group) => group.id)).toEqual([groupId]);
   });
 });

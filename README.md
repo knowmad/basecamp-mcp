@@ -103,6 +103,7 @@ The server requires these environment variables:
 - `basecamp_create_todolist` - Create a todo list in a todo set, with an optional description
 - `basecamp_update_todolist` - Rename a todo list or a group (section), or edit its description
 - `basecamp_move_todolist` - Move a todo list to the top, the bottom, or before/after another list
+- `basecamp_create_todolist_group` - Create a group (section) in a todo list, at the bottom or at a given place
 - `basecamp_move_todolist_group` - Move a group (section) among the groups of its todo list
 - `basecamp_list_todos` - List todos in a list, with their groups, and status filtering (active/archived)
 - `basecamp_create_todo` - Create new todo with optional description

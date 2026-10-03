@@ -766,6 +766,77 @@ Only the todos that are not complete have a position. To set the order of many t
   );
 
   server.registerTool(
+    "basecamp_create_todolist_group",
+    {
+      title: "Create Basecamp Todo List Group",
+      description:
+        "Create a group (section) in a todo list, to split its todos. The new group goes at the bottom of the groups, or at the place that placement tells. Then create todos in the group with basecamp_create_todo (give the group ID as todolist_id), or move todos into it with basecamp_move_todo (destination_id). To rename the group or to give it a description, use basecamp_update_todolist with the group ID.",
+      inputSchema: {
+        todolist_id: BasecampIdSchema,
+        name: z.string().min(1).describe("Name of the group"),
+        placement: PlacementFields.placement
+          .optional()
+          .describe(
+            "Where to put the group among the other groups. If you do not give it, the group goes at the bottom. 'before' and 'after' need relative_to_id.",
+          ),
+        relative_to_id: PlacementFields.relative_to_id,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const placement = params.placement ?? "bottom";
+        validatePlacement(placement, params.relative_to_id);
+
+        const client = await initializeBasecampClient();
+        // A group cannot contain groups. Find this before the create.
+        const list = await client.todolists.get(params.todolist_id);
+        if (list.parent.type !== "Todoset") {
+          throw new Error(
+            `${params.todolist_id} is a group. A group cannot contain groups: give the ID of a todo list.`,
+          );
+        }
+
+        // Find the position before the create, so that a wrong
+        // relative_to_id does not leave a new group behind.
+        const siblings = await client.todolistGroups.list(params.todolist_id);
+        const position = resolvePosition(
+          siblings.map((sibling) => sibling.id),
+          placement,
+          params.relative_to_id,
+        );
+
+        // Basecamp adds the new group at the bottom.
+        const group = await client.todolistGroups.create(params.todolist_id, {
+          name: params.name,
+        });
+        if (position <= siblings.length) {
+          await client.todolistGroups.reposition(group.id, { position });
+        }
+        const groups = await client.todolistGroups.list(params.todolist_id);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Group created!\n\nID: ${group.id}\nName: ${group.name}\nTodo list: ${list.name} (ID: ${list.id})\nPosition: ${rankOf(groups, group.id)} of ${groups.length}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
     "basecamp_move_todolist_group",
     {
       title: "Move Basecamp Todo List Group",
