@@ -47,7 +47,7 @@ export function serializePerson(
  */
 export function serializeCreator(
   person:
-    | { id: number; name: string; email_address?: string }
+    | { id: number; name: string; email_address?: string | null }
     | null
     | undefined,
 ): { id: number; name: string; email?: string } | null {
@@ -58,6 +58,6 @@ export function serializeCreator(
   return {
     id: person.id,
     name: person.name,
-    email: person.email_address,
+    email: person.email_address ?? undefined,
   };
 }
