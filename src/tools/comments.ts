@@ -14,6 +14,10 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import {
+  expandPersonMentions,
+  expandPersonMentionsInOperations,
+} from "../utils/mentions.js";
 import { serializePerson } from "../utils/serializers.js";
 
 export function registerCommentTools(server: McpServer): void {
@@ -77,9 +81,7 @@ export function registerCommentTools(server: McpServer): void {
         content: z
           .string()
           .min(1)
-          .describe(
-            `HTML comment content. To mention people: <bc-attachment sgid="{ person.attachable_sgid }"></bc-attachment>`,
-          ),
+          .describe(`HTML comment content. ${htmlRules}`),
       },
       annotations: {
         readOnlyHint: false,
@@ -92,7 +94,7 @@ export function registerCommentTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
         const comment = await client.comments.create(params.recording_id, {
-          content: params.content,
+          content: await expandPersonMentions(client, params.content),
         });
 
         return {
@@ -133,6 +135,10 @@ export function registerCommentTools(server: McpServer): void {
         validateContentOperations(params);
 
         const client = await initializeBasecampClient();
+        const operations = await expandPersonMentionsInOperations(
+          client,
+          params,
+        );
         let finalContent: string | undefined;
 
         // Check if we need to fetch current content for partial operations
@@ -146,10 +152,10 @@ export function registerCommentTools(server: McpServer): void {
           if (hasPartialOps) {
             const current = await client.comments.get(params.comment_id);
             const currentContent = current.content || "";
-            finalContent = applyContentOperations(currentContent, params);
+            finalContent = applyContentOperations(currentContent, operations);
           } else {
             // Full content replacement
-            finalContent = params.content;
+            finalContent = operations.content;
           }
         }
 

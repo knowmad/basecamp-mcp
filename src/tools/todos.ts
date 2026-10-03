@@ -13,6 +13,10 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import {
+  expandPersonMentions,
+  expandPersonMentionsInOperations,
+} from "../utils/mentions.js";
 import { serializePerson } from "../utils/serializers.js";
 
 /**
@@ -172,7 +176,12 @@ export function registerTodoTools(server: McpServer): void {
         const list = await client.todolists.create(params.todoset_id, {
           name: params.name,
           ...(params.description !== undefined
-            ? { description: params.description }
+            ? {
+                description: await expandPersonMentions(
+                  client,
+                  params.description,
+                ),
+              }
             : {}),
         });
 
@@ -214,12 +223,16 @@ export function registerTodoTools(server: McpServer): void {
         validateContentOperations(params, ["name"]);
 
         const client = await initializeBasecampClient();
+        const operations = await expandPersonMentionsInOperations(
+          client,
+          params,
+        );
 
         // The SDK reads the current todo list, and then sends all the fields.
         // The API clears each field that the request does not include.
         const list = await client.todolists.edit(params.todolist_id, (t) => {
           if (params.name !== undefined) t.name = params.name;
-          const description = applyContentOperations(t.description, params);
+          const description = applyContentOperations(t.description, operations);
           if (description !== undefined) t.description = description;
         });
 
@@ -369,7 +382,10 @@ export function registerTodoTools(server: McpServer): void {
         const client = await initializeBasecampClient();
         const todo = await client.todos.create(params.todolist_id, {
           content: params.title,
-          description: params.content,
+          description:
+            params.content === undefined
+              ? undefined
+              : await expandPersonMentions(client, params.content),
           assigneeIds: params.assignee_ids,
           ...(params.due_on ? { dueOn: params.due_on } : {}),
           ...(params.starts_on ? { startsOn: params.starts_on } : {}),
@@ -499,12 +515,16 @@ export function registerTodoTools(server: McpServer): void {
         ]);
 
         const client = await initializeBasecampClient();
+        const operations = await expandPersonMentionsInOperations(
+          client,
+          params,
+        );
 
         // The SDK reads the current todo, and then sends all the fields. The
         // API clears each field that the request does not include.
         const todo = await client.todos.edit(params.todo_id, (t) => {
           if (params.title !== undefined) t.content = params.title;
-          const description = applyContentOperations(t.description, params);
+          const description = applyContentOperations(t.description, operations);
           if (description !== undefined) t.description = description;
           if (params.assignee_ids !== undefined) {
             t.assigneeIds = params.assignee_ids;

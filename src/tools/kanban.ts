@@ -13,6 +13,10 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import {
+  expandPersonMentions,
+  expandPersonMentionsInOperations,
+} from "../utils/mentions.js";
 import { serializePerson } from "../utils/serializers.js";
 
 // Type for step input from user
@@ -410,7 +414,9 @@ export function registerKanbanTools(server: McpServer): void {
         const client = await initializeBasecampClient();
         const card = await client.cards.create(params.column_id, {
           title: params.title,
-          ...(params.content !== undefined ? { content: params.content } : {}),
+          ...(params.content !== undefined
+            ? { content: await expandPersonMentions(client, params.content) }
+            : {}),
           ...(params.due_on ? { dueOn: params.due_on } : {}),
           ...(params.notify !== undefined ? { notify: params.notify } : {}),
         });
@@ -511,6 +517,10 @@ export function registerKanbanTools(server: McpServer): void {
         ]);
 
         const client = await initializeBasecampClient();
+        const operations = await expandPersonMentionsInOperations(
+          client,
+          params,
+        );
         let finalContent: string | undefined;
         let currentCard: Awaited<ReturnType<typeof client.cards.get>> | null =
           null;
@@ -528,11 +538,11 @@ export function registerKanbanTools(server: McpServer): void {
 
             if (hasPartialOps) {
               const currentContent = currentCard.content || "";
-              finalContent = applyContentOperations(currentContent, params);
+              finalContent = applyContentOperations(currentContent, operations);
             }
           } else {
             // Full content replacement
-            finalContent = params.content;
+            finalContent = operations.content;
           }
         }
 

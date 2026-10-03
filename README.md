@@ -14,6 +14,7 @@ Model Context Protocol (MCP) server for Basecamp. Gives LLMs tools for projects,
 - **Full Docs & Files support:** read and write vaults (folders), documents, and uploads, and download inline `<bc-attachment>` blobs embedded in rich text. Images come back inline, text files as text, everything else saved to disk. Upload a local file or a remote URL to get the `sgid` that embeds it in rich text.
 - **Check-ins (Q&A) support:** list automatic check-in questions and their answers, or post new answers programmatically.
 - **Granular content editing:** messages, comments, documents, and kanban cards all support append, prepend, and search-replace operations, not just full-text replacement, so an LLM can make a small edit without resending the whole document.
+- **Mentions by person ID:** every tool that writes rich text takes `<bc-attachment person-id="123">` anywhere in the HTML and turns it into a real mention. An unknown ID is an error and nothing is posted, instead of a broken mention that notifies nobody.
 - **Cross-project activity feed:** `basecamp_list_recordings` searches across every project by type, person, date range, and free text in one call, with automatic response-size management and pagination.
 - **Type-safe end to end:** written in TypeScript with Zod schemas validating every tool input.
 - **Tested against the real API:** the test suite exercises every tool category (messages, todos, kanban, comments, docs/files, check-ins, campfires, activity) against a live Basecamp account, not mocks.

@@ -25,6 +25,10 @@ import {
 } from "../utils/contentOperations.js";
 import { readCredentials } from "../utils/credentials.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import {
+  expandPersonMentions,
+  expandPersonMentionsInOperations,
+} from "../utils/mentions.js";
 import { serializePerson } from "../utils/serializers.js";
 
 const DOWNLOAD_DIR = join(tmpdir(), "basecamp-downloads");
@@ -437,7 +441,7 @@ export function registerFilesTools(server: McpServer): void {
         const client = await initializeBasecampClient();
         const doc = await client.documents.create(params.vault_id, {
           title: params.title,
-          content: params.content,
+          content: await expandPersonMentions(client, params.content),
           status: params.status,
         });
 
@@ -480,12 +484,16 @@ export function registerFilesTools(server: McpServer): void {
         validateContentOperations(params, ["title"]);
 
         const client = await initializeBasecampClient();
+        const operations = await expandPersonMentionsInOperations(
+          client,
+          params,
+        );
 
         // The SDK reads the current document, and then sends all the fields.
         // Thus, partial content operations need no separate read.
         const doc = await client.documents.edit(params.document_id, (d) => {
           if (params.title) d.title = params.title;
-          const content = applyContentOperations(d.content, params);
+          const content = applyContentOperations(d.content, operations);
           if (content !== undefined) d.content = content;
         });
 
