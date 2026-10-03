@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { initializeBasecampClient } from "../src/utils/auth.js";
 import {
   createTestClient,
   extractId,
@@ -195,5 +196,57 @@ describe("Basecamp kanban via MCP tools (live)", () => {
       "Third",
     ]);
     expect(card.steps?.find((s) => s.title === "First")?.completed).toBe(true);
+  });
+
+  it("keeps the fields that a card or step update does not change (regression)", async () => {
+    const columns = await mcp.json<Array<{ id: number; title: string }>>(
+      "basecamp_list_kanban_columns",
+      { card_table_id: cardTableId },
+    );
+    const title = `MCP keep-fields card ${Date.now()}`;
+    const createText = await mcp.text("basecamp_create_kanban_card", {
+      column_id: columns[0].id,
+      title,
+      content: "<div>Keep this body.</div>",
+      due_on: "2030-05-10",
+      assignee_ids: [myId],
+      steps: [
+        {
+          title: "Step with fields",
+          due_on: "2030-05-05",
+          assignee_ids: [myId],
+        },
+      ],
+    });
+    const cardId = extractId(createText);
+    toTrash.push(cardId);
+
+    const client = await initializeBasecampClient();
+    let raw = await client.cards.get(cardId);
+    const stepId = raw.steps?.[0]?.id as number;
+    expect(raw.steps?.[0]?.due_on).toBe("2030-05-05");
+
+    // Card title only: the body, the due date and the assignees must stay.
+    const newTitle = `${title} (renamed)`;
+    await mcp.text("basecamp_update_kanban_card", {
+      card_id: cardId,
+      title: newTitle,
+    });
+    raw = await client.cards.get(cardId);
+    expect(raw.title).toBe(newTitle);
+    expect(raw.content ?? "").toContain("Keep this body.");
+    expect(raw.due_on).toBe("2030-05-10");
+    expect((raw.assignees || []).map((p) => p.id)).toContain(myId);
+
+    // Step title only: the step due date and assignees must stay.
+    await mcp.text("basecamp_update_kanban_card", {
+      card_id: cardId,
+      steps: [{ id: stepId, title: "Step renamed" }],
+    });
+    raw = await client.cards.get(cardId);
+    const step = raw.steps?.find((s) => s.id === stepId);
+    expect(step?.title).toBe("Step renamed");
+    expect(step?.due_on).toBe("2030-05-05");
+    expect((step?.assignees || []).map((p) => p.id)).toContain(myId);
   });
 });

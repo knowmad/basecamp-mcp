@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { initializeBasecampClient } from "../src/utils/auth.js";
 import {
   createTestClient,
   extractId,
@@ -153,5 +154,50 @@ describe("Basecamp message board via MCP tools (live)", () => {
     });
     expect(afterReplace.content).toContain("Replaced paragraph.");
     expect(afterReplace.content).not.toContain("Appended paragraph.");
+  });
+
+  it("keeps the fields that an update does not change (regression)", async () => {
+    // A PUT can clear each field that it does not include. Make sure that an
+    // update of one field keeps the others.
+    const categories = await mcp.json<Category[]>(
+      "basecamp_list_message_types",
+      { bucket_id: projectId },
+    );
+    const categoryId = categories[0]?.id;
+
+    const subject = `MCP keep-fields message ${Date.now()}`;
+    const createText = await mcp.text("basecamp_create_message", {
+      message_board_id: messageBoardId,
+      subject,
+      content: "<div>Keep this body.</div>",
+      status: "active",
+      ...(categoryId ? { message_type_id: categoryId } : {}),
+    });
+    const messageId = extractId(createText);
+    toTrash.push(messageId);
+
+    const client = await initializeBasecampClient();
+
+    // Subject only: the body and the category must stay.
+    const newSubject = `${subject} (renamed)`;
+    await mcp.text("basecamp_update_message", {
+      message_id: messageId,
+      subject: newSubject,
+    });
+    let raw = await client.messages.get(messageId);
+    expect(raw.subject).toBe(newSubject);
+    expect(raw.content ?? "").toContain("Keep this body.");
+    if (categoryId) expect(raw.category?.id).toBe(categoryId);
+
+    // Body only: the subject and the category must stay.
+    await mcp.text("basecamp_update_message", {
+      message_id: messageId,
+      content_append: "<div>Appended.</div>",
+    });
+    raw = await client.messages.get(messageId);
+    expect(raw.subject).toBe(newSubject);
+    expect(raw.content ?? "").toContain("Keep this body.");
+    expect(raw.content ?? "").toContain("Appended.");
+    if (categoryId) expect(raw.category?.id).toBe(categoryId);
   });
 });
