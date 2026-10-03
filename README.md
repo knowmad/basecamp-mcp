@@ -99,9 +99,15 @@ The server requires these environment variables:
 
 ### TODOs
 - `basecamp_get_todoset` - Get todo set container with all todo lists
-- `basecamp_list_todos` - List todos in a list with status filtering (active/archived)
+- `basecamp_create_todolist` - Create a todo list in a todo set, with an optional description
+- `basecamp_update_todolist` - Rename a todo list or a group (section), or edit its description
+- `basecamp_move_todolist` - Move a todo list to the top, the bottom, or before/after another list
+- `basecamp_move_todolist_group` - Move a group (section) among the groups of its todo list
+- `basecamp_list_todos` - List todos in a list, with their groups, and status filtering (active/archived)
 - `basecamp_create_todo` - Create new todo with optional description
 - `basecamp_update_todo` - Update a todo's title, description, due date, or assignees
+- `basecamp_move_todo` - Move a todo to the top, the bottom, or before/after another todo, also into a different list or group
+- `basecamp_reorder_todos` - Set the order of all the todos in a list or group, for example to sort them by due date
 - `basecamp_complete_todo` - Mark todo as complete
 - `basecamp_uncomplete_todo` - Mark todo as incomplete
 
