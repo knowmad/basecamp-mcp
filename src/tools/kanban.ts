@@ -24,6 +24,11 @@ type StepInput = {
   completed?: boolean;
 };
 
+// Tells if a step input refers to a step that exists on the card
+function hasId(step: StepInput): step is StepInput & { id: number } {
+  return Boolean(step.id);
+}
+
 // Type for current step from API
 type CurrentStep = {
   id: number;
@@ -53,7 +58,7 @@ async function processStepOperations(
   }
 
   // Check for duplicate IDs
-  const stepIds = desiredSteps.filter((s) => s.id).map((s) => s.id!);
+  const stepIds = desiredSteps.filter(hasId).map((s) => s.id);
   if (new Set(stepIds).size !== stepIds.length) {
     throw new Error("Duplicate step IDs found in steps array");
   }
@@ -84,7 +89,7 @@ async function processStepOperations(
   const toCreate = desiredSteps.filter((s) => !s.id);
 
   // Steps to update/reposition/complete
-  const toProcess = desiredSteps.filter((s) => s.id);
+  const toProcess = desiredSteps.filter(hasId);
 
   // ===== DELETE OPERATIONS =====
 
@@ -117,7 +122,7 @@ async function processStepOperations(
   const currentStepMap = new Map(currentSteps.map((s) => [s.id, s]));
 
   for (const step of toProcess) {
-    const currentStep = currentStepMap.get(step.id!);
+    const currentStep = currentStepMap.get(step.id);
     if (!currentStep) continue; // Should not happen due to validation
 
     // Check what changed
@@ -134,7 +139,7 @@ async function processStepOperations(
 
     // Only update if something changed
     if (titleChanged || dueOnChanged || assigneesChanged) {
-      await client.cardSteps.update(step.id!, {
+      await client.cardSteps.update(step.id, {
         ...(step.title ? { title: step.title } : {}),
         ...(step.due_on !== undefined
           ? { dueOn: step.due_on || undefined }
@@ -150,7 +155,7 @@ async function processStepOperations(
     ) {
       // "on" completes; "off" reverts. The SDK doc suggests "" to uncomplete,
       // but the live API rejects an empty completion ("Completion is required").
-      await client.cardSteps.setCompletion(step.id!, {
+      await client.cardSteps.setCompletion(step.id, {
         completion: step.completed ? "on" : "off",
       });
     }

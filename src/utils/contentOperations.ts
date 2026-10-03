@@ -89,9 +89,7 @@ const ALLOWED_BC_ATTACHMENT_ATTRS = new Set([
 function normalizeBcAttachmentAttrs(attrString: string): string {
   const attrRegex = /([a-zA-Z0-9_-]+)\s*=\s*"([^"]*)"/g;
   const kept: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = attrRegex.exec(attrString)) !== null) {
-    const [, name, value] = match;
+  for (const [, name, value] of attrString.matchAll(attrRegex)) {
     if (ALLOWED_BC_ATTACHMENT_ATTRS.has(name)) {
       kept.push(`${name}="${value}"`);
     }
