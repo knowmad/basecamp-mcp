@@ -157,6 +157,10 @@ The server requires these environment variables:
 - `basecamp_get_answer` - Get a single check-in answer
 - `basecamp_create_answer` - Post a new answer to a check-in question
 
+### Trash
+- `basecamp_trash` - Move any item (todo list, group, todo, message, comment, document, folder, upload, card) to the trash, with the items in it
+- `basecamp_restore` - Bring an item back from the trash or the archive
+
 ## Development
 
 ```bash

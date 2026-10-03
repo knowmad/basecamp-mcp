@@ -13,6 +13,7 @@ import { registerMessageTools } from "./tools/messages.js";
 import { registerPeopleTools } from "./tools/people.js";
 import { registerProjectTools } from "./tools/projects.js";
 import { registerTodoTools } from "./tools/todos.js";
+import { registerTrashTools } from "./tools/trash.js";
 
 /**
  * Build an McpServer with every Basecamp tool registered. Shared by the stdio
@@ -36,6 +37,7 @@ export function buildServer(): McpServer {
   registerCampfireTools(server);
   registerFilesTools(server);
   registerCheckinTools(server);
+  registerTrashTools(server);
 
   return server;
 }
