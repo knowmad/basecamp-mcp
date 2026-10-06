@@ -166,6 +166,21 @@ describe("Basecamp Docs & Files via MCP tools (live)", () => {
     });
     expect(afterPartial.content).toContain("Fully replaced body.");
     expect(afterPartial.content).toContain("Appended paragraph.");
+    // Content-only edits must not clear the title (document PUT replaces).
+    expect(afterPartial.title).toBe(docTitle);
+
+    // UPDATE (title only) must not clear the content.
+    const renamed = `${docTitle} (renamed)`;
+    await mcp.text("basecamp_update_document", {
+      document_id: docId,
+      title: renamed,
+    });
+    const afterRename = await mcp.json<Document>("basecamp_get_document", {
+      document_id: docId,
+    });
+    expect(afterRename.title).toBe(renamed);
+    expect(afterRename.content).toContain("Fully replaced body.");
+    expect(afterRename.content).toContain("Appended paragraph.");
   });
 
   it("lists uploads and gets one (seeding the download path)", async () => {

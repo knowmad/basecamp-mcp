@@ -143,7 +143,7 @@ The server requires these environment variables:
 - `basecamp_list_documents` - List documents in a vault, with optional title/content filtering
 - `basecamp_get_document` - Get a document's full HTML content and draft/published status
 - `basecamp_create_document` - Create a new document (active or draft)
-- `basecamp_update_document` - Update a document with advanced content editing (supports full replacement, append, prepend, search/replace)
+- `basecamp_update_document` - Update a document with advanced content editing (supports full replacement, append, prepend, search/replace); keeps the title or content you don't pass
 - `basecamp_list_uploads` - List files uploaded to a vault
 - `basecamp_get_upload` - Retrieve an uploaded file: images are returned inline, text files as text, other binary formats saved to disk
 - `basecamp_download_blob` - Download an inline `<bc-attachment>` attachment referenced in document/message/comment HTML content
