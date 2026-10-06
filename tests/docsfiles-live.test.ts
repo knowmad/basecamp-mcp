@@ -118,6 +118,7 @@ describe("Basecamp Docs & Files via MCP tools (live)", () => {
       vault_id: vaultId,
       title: docTitle,
       content: initialContent,
+      status: "active",
     });
     expect(createText).toContain("Document created successfully!");
     const docId = extractId(createText);

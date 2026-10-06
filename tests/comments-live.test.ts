@@ -38,6 +38,7 @@ beforeAll(async () => {
     message_board_id: messageBoardId,
     subject: `MCP comments parent ${Date.now()}`,
     content: "<div>Parent message for the MCP comments lifecycle test.</div>",
+    status: "active",
   });
   expect(createText).toContain("Message created successfully!");
   parentId = extractId(createText);

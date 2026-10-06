@@ -303,7 +303,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_create_message",
     {
       title: "Create Basecamp Message",
-      description: `Create a new message in a Basecamp message board.`,
+      description: `Create a new message in a Basecamp message board. By default the message is saved as an unpublished draft ("drafted"): it is not posted and notifies no one. Passing status "active" publishes immediately — it posts the message and notifies every subscriber (when created, that is everyone on the project), and cannot be undone. To publish a draft later, use basecamp_publish_message.`,
       inputSchema: {
         message_board_id: BasecampIdSchema,
         subject: z.string().min(1).max(500).describe("Message subject/title"),
@@ -316,9 +316,9 @@ export function registerMessageTools(server: McpServer): void {
         ),
         status: z
           .enum(["active", "drafted"])
-          .default("active")
+          .default("drafted")
           .describe(
-            `Message status. Use "active" to publish, "drafted" to save as an unpublished draft.`,
+            `Message status (default "drafted"). "drafted" saves an unpublished draft that notifies no one. "active" publishes now: it posts the message, notifies subscribers, and cannot be undone.`,
           ),
       },
       annotations: {
@@ -361,7 +361,7 @@ export function registerMessageTools(server: McpServer): void {
     "basecamp_update_message",
     {
       title: "Update Basecamp Message",
-      description: `Update a message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
+      description: `Update a message's subject, category, or content. Never changes publish status: editing a draft leaves it a draft, and nobody is notified. To publish a draft, use basecamp_publish_message. Use partial content operations when possible to save on token usage. ${htmlRules}`,
       inputSchema: {
         message_id: BasecampIdSchema,
         subject: z
@@ -425,6 +425,62 @@ export function registerMessageTools(server: McpServer): void {
             {
               type: "text",
               text: `Message updated successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_publish_message
+  server.registerTool(
+    "basecamp_publish_message",
+    {
+      title: "Publish Basecamp Message Draft",
+      description: `Publish a drafted message. This posts the message to its message board and notifies its subscribers, exactly once. It cannot be undone. Only call this when the user has explicitly asked to publish this specific message. Refuses (without changing anything) if the message is not currently a draft.`,
+      inputSchema: {
+        message_id: BasecampIdSchema.describe("ID of the drafted message"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+
+        const current = await client.messages.get(params.message_id);
+        if (current.status !== "drafted") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Not published: message ${current.id} has status "${current.status}", not "drafted". Nothing was changed.`,
+              },
+            ],
+          };
+        }
+
+        // A message update merges, so the body is exactly {"status":"active"}
+        // (the SDK drops the undefined subject/content/category fields).
+        // NOTE: PUT /recordings/{id}/status/active.json is unarchive, not
+        // publish — never use it here.
+        const message = await client.messages.update(params.message_id, {
+          status: "active",
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Message published.\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}\nURL: ${message.app_url}`,
             },
           ],
         };
