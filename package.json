@@ -49,7 +49,7 @@
   },
   "homepage": "https://github.com/stefanoverna/basecamp-mcp#readme",
   "dependencies": {
-    "@37signals/basecamp": "^0.22.0",
+    "@37signals/basecamp": "^0.23.0",
     "@modelcontextprotocol/sdk": "^1.6.1",
     "zod": "^3.23.8"
   },
