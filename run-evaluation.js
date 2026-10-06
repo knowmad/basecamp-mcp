@@ -12,12 +12,12 @@
  * Usage: ANTHROPIC_API_KEY=your_key node run-evaluation.js
  */
 
+import { spawn } from "node:child_process";
+import fs from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { spawn } from "child_process";
 import dotenv from "dotenv";
-import fs from "fs";
 import { parseStringPromise } from "xml2js";
 
 // Load .env file

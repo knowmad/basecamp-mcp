@@ -9,7 +9,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
+import { htmlRules } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import { expandPersonMentions } from "../utils/mentions.js";
 import { serializePerson } from "../utils/serializers.js";
 
 export function registerCheckinTools(server: McpServer): void {
@@ -276,7 +278,10 @@ export function registerCheckinTools(server: McpServer): void {
         "Create a new answer for a check-in question. Content must be HTML.",
       inputSchema: {
         question_id: BasecampIdSchema.describe("Question ID to answer"),
-        content: z.string().min(1).describe("HTML content of the answer"),
+        content: z
+          .string()
+          .min(1)
+          .describe(`HTML content of the answer. ${htmlRules}`),
         group_on: z
           .string()
           .describe(
@@ -294,7 +299,7 @@ export function registerCheckinTools(server: McpServer): void {
       try {
         const client = await initializeBasecampClient();
         const answer = await client.checkins.createAnswer(params.question_id, {
-          content: params.content,
+          content: await expandPersonMentions(client, params.content),
           groupOn: params.group_on,
         });
 

@@ -121,9 +121,10 @@ function startCallbackServer(
   clientSecret: string,
 ): Promise<ServerHandle | null> {
   return new Promise((resolveStart) => {
+    // The Promise executor below runs immediately and replaces this no-op.
     let resolveTokens: (
       tokens: { accessToken: string; refreshToken: string } | null,
-    ) => void;
+    ) => void = () => undefined;
 
     const tokensPromise = new Promise<{
       accessToken: string;
@@ -154,7 +155,7 @@ function startCallbackServer(
           res.writeHead(400);
           res.end(error);
           server.close();
-          resolveTokens!(null);
+          resolveTokens(null);
           return;
         }
 
@@ -167,14 +168,14 @@ function startCallbackServer(
           res.writeHead(200, { "Content-Type": "text/html" });
           res.end(SUCCESS_HTML);
           server.close();
-          resolveTokens!(tokens);
+          resolveTokens(tokens);
         } catch (err) {
           res.writeHead(500);
           res.end(
             `Token exchange failed: ${err instanceof Error ? err.message : String(err)}`,
           );
           server.close();
-          resolveTokens!(null);
+          resolveTokens(null);
         }
       },
     );

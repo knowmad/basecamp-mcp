@@ -14,6 +14,7 @@ Model Context Protocol (MCP) server for Basecamp. Gives LLMs tools for projects,
 - **Full Docs & Files support:** read and write vaults (folders), documents, and uploads, and download inline `<bc-attachment>` blobs embedded in rich text. Images come back inline, text files as text, everything else saved to disk. Upload a local file or a remote URL to get the `sgid` that embeds it in rich text.
 - **Check-ins (Q&A) support:** list automatic check-in questions and their answers, or post new answers programmatically.
 - **Granular content editing:** messages, comments, documents, and kanban cards all support append, prepend, and search-replace operations, not just full-text replacement, so an LLM can make a small edit without resending the whole document.
+- **Mentions by person ID:** every tool that writes rich text takes `<bc-attachment person-id="123">` anywhere in the HTML and turns it into a real mention. An unknown ID is an error and nothing is posted, instead of a broken mention that notifies nobody.
 - **Cross-project activity feed:** `basecamp_list_recordings` searches across every project by type, person, date range, and free text in one call, with automatic response-size management and pagination.
 - **Type-safe end to end:** written in TypeScript with Zod schemas validating every tool input.
 - **Tested against the real API:** the test suite exercises every tool category (messages, todos, kanban, comments, docs/files, check-ins, campfires, activity) against a live Basecamp account, not mocks.
@@ -99,9 +100,16 @@ The server requires these environment variables:
 
 ### TODOs
 - `basecamp_get_todoset` - Get todo set container with all todo lists
-- `basecamp_list_todos` - List todos in a list with status filtering (active/archived)
+- `basecamp_create_todolist` - Create a todo list in a todo set, with an optional description
+- `basecamp_update_todolist` - Rename a todo list or a group (section), or edit its description
+- `basecamp_move_todolist` - Move a todo list to the top, the bottom, or before/after another list
+- `basecamp_create_todolist_group` - Create a group (section) in a todo list, at the bottom or at a given place
+- `basecamp_move_todolist_group` - Move a group (section) among the groups of its todo list
+- `basecamp_list_todos` - List todos in a list, with their groups, and status filtering (active/archived)
 - `basecamp_create_todo` - Create new todo with optional description
 - `basecamp_update_todo` - Update a todo's title, description, due date, or assignees
+- `basecamp_move_todo` - Move a todo to the top, the bottom, or before/after another todo, also into a different list or group
+- `basecamp_reorder_todos` - Set the order of all the todos in a list or group, for example to sort them by due date
 - `basecamp_complete_todo` - Mark todo as complete
 - `basecamp_uncomplete_todo` - Mark todo as incomplete
 
@@ -148,6 +156,10 @@ The server requires these environment variables:
 - `basecamp_list_answers` - List answers to a check-in question
 - `basecamp_get_answer` - Get a single check-in answer
 - `basecamp_create_answer` - Post a new answer to a check-in question
+
+### Trash
+- `basecamp_trash` - Move any item (todo list, group, todo, message, comment, document, folder, upload, card) to the trash, with the items in it
+- `basecamp_restore` - Bring an item back from the trash or the archive
 
 ## Development
 

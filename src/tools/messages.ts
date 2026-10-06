@@ -15,6 +15,10 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import {
+  expandPersonMentions,
+  expandPersonMentionsInOperations,
+} from "../utils/mentions.js";
 import { serializePerson } from "../utils/serializers.js";
 
 export function registerMessageTools(server: McpServer): void {
@@ -236,7 +240,10 @@ export function registerMessageTools(server: McpServer): void {
         const client = await initializeBasecampClient();
         const message = await client.messages.create(params.message_board_id, {
           subject: params.subject,
-          content: params.content,
+          content:
+            params.content === undefined
+              ? undefined
+              : await expandPersonMentions(client, params.content),
           categoryId: params.message_type_id,
           status: params.status,
         });
@@ -288,6 +295,10 @@ export function registerMessageTools(server: McpServer): void {
         validateContentOperations(params, ["subject", "message_type_id"]);
 
         const client = await initializeBasecampClient();
+        const operations = await expandPersonMentionsInOperations(
+          client,
+          params,
+        );
         let finalContent: string | undefined;
 
         // Check if we need to fetch current content for partial operations
@@ -301,10 +312,10 @@ export function registerMessageTools(server: McpServer): void {
           if (hasPartialOps) {
             const current = await client.messages.get(params.message_id);
             const currentContent = current.content || "";
-            finalContent = applyContentOperations(currentContent, params);
+            finalContent = applyContentOperations(currentContent, operations);
           } else {
             // Full content replacement
-            finalContent = params.content;
+            finalContent = operations.content;
           }
         }
 

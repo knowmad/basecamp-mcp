@@ -63,11 +63,13 @@ basecamp-mcp/
 │   │   ├── messages.ts           # Message board operations
 │   │   ├── people.ts             # User management
 │   │   ├── projects.ts           # Project operations
-│   │   └── todos.ts              # Todo management
+│   │   ├── todos.ts              # Todo management
+│   │   └── trash.ts              # Trash and restore for any item
 │   ├── utils/                    # Cross-cutting utility functions
 │   │   ├── auth.ts               # OAuth authentication & client setup with token caching
 │   │   ├── errorHandlers.ts      # API error handling with user-friendly messages
 │   │   ├── contentOperations.ts  # HTML content manipulation (append/prepend/replace)
+│   │   ├── mentions.ts           # Mentions by person ID in rich text
 │   │   └── serializers.ts        # Data serialization and formatting helpers
 │   └── schemas/                  # Zod validation schemas
 │       └── common.ts             # Shared input parameter schemas

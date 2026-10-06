@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { mentionRule } from "./mentions.js";
 
 export const htmlRules = `
 
@@ -15,7 +16,7 @@ HTML rules for content:
 * Inline code: <code>text</code>. Preformatted blocks: <pre>text</pre>.
 * Ordered lists: <ol><li>...</li></ol>. Unordered: <ul><li>...</li></ul>.
 * Tables: <table><tbody><tr><th>Heading</th>...</tr><tr><td>Cell</td>...</tr></tbody></table>
-* To mention people: <bc-attachment sgid="{ person.attachable_sgid }" content-type="application/vnd.basecamp.mention"></bc-attachment>
+* ${mentionRule}
 * Single image: <bc-attachment sgid="{ attachment.attachable_sgid }"></bc-attachment>
 * Image gallery: wrap multiple <bc-attachment sgid="..." presentation="gallery"> in a <div>.
 * A bc-attachment needs an attachable_sgid. For a file that is already in Basecamp, take the sgid from the HTML content of the message, comment or card that shows it, or use basecamp_list_recordings. For a file that is not in Basecamp yet, such as an image at an external URL or a screenshot on disk, upload it with basecamp_create_attachment and use the sgid that it returns. There is no <img> tag, so an external image URL can never be embedded directly: upload it, or accept that it stays a plain link.
@@ -89,9 +90,7 @@ const ALLOWED_BC_ATTACHMENT_ATTRS = new Set([
 function normalizeBcAttachmentAttrs(attrString: string): string {
   const attrRegex = /([a-zA-Z0-9_-]+)\s*=\s*"([^"]*)"/g;
   const kept: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = attrRegex.exec(attrString)) !== null) {
-    const [, name, value] = match;
+  for (const [, name, value] of attrString.matchAll(attrRegex)) {
     if (ALLOWED_BC_ATTACHMENT_ATTRS.has(name)) {
       kept.push(`${name}="${value}"`);
     }

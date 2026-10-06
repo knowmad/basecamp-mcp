@@ -13,6 +13,10 @@ import {
   validateContentOperations,
 } from "../utils/contentOperations.js";
 import { handleBasecampError } from "../utils/errorHandlers.js";
+import {
+  expandPersonMentions,
+  expandPersonMentionsInOperations,
+} from "../utils/mentions.js";
 import { serializePerson } from "../utils/serializers.js";
 
 // Type for step input from user
@@ -23,6 +27,11 @@ type StepInput = {
   assignee_ids?: number[];
   completed?: boolean;
 };
+
+// Tells if a step input refers to a step that exists on the card
+function hasId(step: StepInput): step is StepInput & { id: number } {
+  return Boolean(step.id);
+}
 
 // Type for current step from API
 type CurrentStep = {
@@ -53,7 +62,7 @@ async function processStepOperations(
   }
 
   // Check for duplicate IDs
-  const stepIds = desiredSteps.filter((s) => s.id).map((s) => s.id!);
+  const stepIds = desiredSteps.filter(hasId).map((s) => s.id);
   if (new Set(stepIds).size !== stepIds.length) {
     throw new Error("Duplicate step IDs found in steps array");
   }
@@ -84,7 +93,7 @@ async function processStepOperations(
   const toCreate = desiredSteps.filter((s) => !s.id);
 
   // Steps to update/reposition/complete
-  const toProcess = desiredSteps.filter((s) => s.id);
+  const toProcess = desiredSteps.filter(hasId);
 
   // ===== DELETE OPERATIONS =====
 
@@ -117,7 +126,7 @@ async function processStepOperations(
   const currentStepMap = new Map(currentSteps.map((s) => [s.id, s]));
 
   for (const step of toProcess) {
-    const currentStep = currentStepMap.get(step.id!);
+    const currentStep = currentStepMap.get(step.id);
     if (!currentStep) continue; // Should not happen due to validation
 
     // Check what changed
@@ -134,7 +143,7 @@ async function processStepOperations(
 
     // Only update if something changed
     if (titleChanged || dueOnChanged || assigneesChanged) {
-      await client.cardSteps.update(step.id!, {
+      await client.cardSteps.update(step.id, {
         ...(step.title ? { title: step.title } : {}),
         ...(step.due_on !== undefined
           ? { dueOn: step.due_on || undefined }
@@ -150,7 +159,7 @@ async function processStepOperations(
     ) {
       // "on" completes; "off" reverts. The SDK doc suggests "" to uncomplete,
       // but the live API rejects an empty completion ("Completion is required").
-      await client.cardSteps.setCompletion(step.id!, {
+      await client.cardSteps.setCompletion(step.id, {
         completion: step.completed ? "on" : "off",
       });
     }
@@ -405,7 +414,9 @@ export function registerKanbanTools(server: McpServer): void {
         const client = await initializeBasecampClient();
         const card = await client.cards.create(params.column_id, {
           title: params.title,
-          ...(params.content !== undefined ? { content: params.content } : {}),
+          ...(params.content !== undefined
+            ? { content: await expandPersonMentions(client, params.content) }
+            : {}),
           ...(params.due_on ? { dueOn: params.due_on } : {}),
           ...(params.notify !== undefined ? { notify: params.notify } : {}),
         });
@@ -506,6 +517,10 @@ export function registerKanbanTools(server: McpServer): void {
         ]);
 
         const client = await initializeBasecampClient();
+        const operations = await expandPersonMentionsInOperations(
+          client,
+          params,
+        );
         let finalContent: string | undefined;
         let currentCard: Awaited<ReturnType<typeof client.cards.get>> | null =
           null;
@@ -523,11 +538,11 @@ export function registerKanbanTools(server: McpServer): void {
 
             if (hasPartialOps) {
               const currentContent = currentCard.content || "";
-              finalContent = applyContentOperations(currentContent, params);
+              finalContent = applyContentOperations(currentContent, operations);
             }
           } else {
             // Full content replacement
-            finalContent = params.content;
+            finalContent = operations.content;
           }
         }
 

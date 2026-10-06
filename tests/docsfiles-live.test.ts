@@ -240,4 +240,35 @@ describe("Basecamp Docs & Files via MCP tools (live)", () => {
       /^(Error|Basecamp API error|Not logged in|Failed)\b/i.test(text.trim());
     expect(isError).toBe(true);
   });
+
+  it("keeps the fields that a document update does not change (regression)", async () => {
+    const title = `MCP keep-fields document ${Date.now()}`;
+    const createText = await mcp.text("basecamp_create_document", {
+      vault_id: rootVaultId,
+      title,
+      content: "<p>Keep this body.</p>",
+    });
+    const docId = extractId(createText);
+    toTrash.push(docId);
+
+    const client = await initializeBasecampClient();
+
+    const newTitle = `${title} (renamed)`;
+    await mcp.text("basecamp_update_document", {
+      document_id: docId,
+      title: newTitle,
+    });
+    let raw = await client.documents.get(docId);
+    expect(raw.title).toBe(newTitle);
+    expect(raw.content ?? "").toContain("Keep this body.");
+
+    await mcp.text("basecamp_update_document", {
+      document_id: docId,
+      content_append: "<p>Appended.</p>",
+    });
+    raw = await client.documents.get(docId);
+    expect(raw.title).toBe(newTitle);
+    expect(raw.content ?? "").toContain("Keep this body.");
+    expect(raw.content ?? "").toContain("Appended.");
+  });
 });
