@@ -212,3 +212,25 @@ describe("Basecamp message board via MCP tools (live)", () => {
     if (categoryId) expect(raw.category?.id).toBe(categoryId);
   });
 });
+
+describe("basecamp_list_drafts (live)", () => {
+  it("lists a drafted message, which notifies no one", async () => {
+    const subject = `MCP list drafts ${Date.now()}`;
+    const createText = await mcp.text("basecamp_create_message", {
+      message_board_id: messageBoardId,
+      subject,
+      content: "<div>Draft for the list_drafts test.</div>",
+      status: "drafted",
+    });
+    const draftId = extractId(createText);
+    toTrash.push(draftId);
+
+    const drafts = await mcp.json<Array<{ id: number; type: string }>>(
+      "basecamp_list_drafts",
+      { limit: 100 },
+    );
+    expect(drafts.some((d) => d.id === draftId && d.type === "message")).toBe(
+      true,
+    );
+  });
+});

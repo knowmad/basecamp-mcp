@@ -6,6 +6,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { DEFAULT_LIMIT, MAX_LIMIT } from "../constants.js";
 import { BasecampIdSchema } from "../schemas/common.js";
 import { initializeBasecampClient } from "../utils/auth.js";
 import {
@@ -19,7 +20,22 @@ import {
   expandPersonMentions,
   expandPersonMentionsInOperations,
 } from "../utils/mentions.js";
+import { paginate } from "../utils/pagination.js";
 import { serializePerson } from "../utils/serializers.js";
+
+/** One entry from GET /my/drafts.json (shape per bc3-api sections/drafts.md). */
+type Draft = {
+  id: number;
+  type: string;
+  title: string;
+  app_url: string;
+  bucket?: { id: number; name: string } | null;
+  parent?: { id: number; title: string } | null;
+  excerpt?: string;
+  created_at?: string;
+  updated_at?: string;
+  scheduled_posting_at?: string | null;
+};
 
 export function registerMessageTools(server: McpServer): void {
   // basecamp_get_message
@@ -121,6 +137,79 @@ export function registerMessageTools(server: McpServer): void {
                   inherits_status: m.inherits_status,
                   creator: serializePerson(m.creator),
                   created_at: m.created_at,
+                })),
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: handleBasecampError(error) }],
+        };
+      }
+    },
+  );
+
+  // basecamp_list_drafts
+  server.registerTool(
+    "basecamp_list_drafts",
+    {
+      title: "List My Basecamp Drafts",
+      description: `List the current user's unpublished drafts across their active projects, most recently updated first: messages, documents, uploads, client approvals, and client correspondences. Every item returned is a draft (not posted, nobody notified). Not exhaustive: Google documents, cloud files, and schedule entries can also be drafted but are not listed here.`,
+      inputSchema: {
+        limit: z
+          .number()
+          .min(1)
+          .max(MAX_LIMIT)
+          .optional()
+          .describe(
+            `Maximum number of drafts to return (default: ${DEFAULT_LIMIT}, max: ${MAX_LIMIT}).`,
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      try {
+        const client = await initializeBasecampClient();
+        const limit = params.limit || DEFAULT_LIMIT;
+
+        // SDK 0.7.3 has no drafts wrapper; page the endpoint directly.
+        const drafts: Draft[] = [];
+        for await (const draft of paginate<Draft>(
+          client,
+          "/my/drafts.json",
+          {},
+        )) {
+          drafts.push(draft);
+          if (drafts.length >= limit) break;
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                drafts.map((d) => ({
+                  id: d.id,
+                  type: d.type,
+                  title: d.title,
+                  bucket: d.bucket
+                    ? { id: d.bucket.id, name: d.bucket.name }
+                    : null,
+                  parent: d.parent
+                    ? { id: d.parent.id, title: d.parent.title }
+                    : null,
+                  excerpt: d.excerpt,
+                  updated_at: d.updated_at,
+                  scheduled_posting_at: d.scheduled_posting_at,
+                  url: d.app_url,
                 })),
                 null,
                 2,
