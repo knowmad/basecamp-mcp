@@ -84,6 +84,7 @@ export function inferContentType(filename: string): string {
     jpeg: "image/jpeg",
     gif: "image/gif",
     webp: "image/webp",
+    pdf: "application/pdf",
     txt: "text/plain",
     csv: "text/csv",
     json: "application/json",

@@ -6,7 +6,7 @@
 
 Model Context Protocol (MCP) server for Basecamp. Gives LLMs tools for projects, messages, todos, comments, people, kanban boards, docs & files, check-ins, and campfire chat.
 
-0 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
+60 tools, published on npm and installable with one `npx` command: no cloning, no virtualenv, no manual OAuth script to run.
 
 ## Why this server
 

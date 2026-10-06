@@ -320,6 +320,12 @@ export function registerMessageTools(server: McpServer): void {
           .describe(
             `Message status (default "drafted"). "drafted" saves an unpublished draft that notifies no one. "active" publishes now: it posts the message, notifies subscribers, and cannot be undone.`,
           ),
+        visible_to_clients: z
+          .boolean()
+          .optional()
+          .describe(
+            "Set to true to let the clients on the project see the message. Basecamp only applies it when the project has clients enabled. When omitted, Basecamp keeps the message hidden from clients.",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -339,13 +345,14 @@ export function registerMessageTools(server: McpServer): void {
               : await expandPersonMentions(client, params.content),
           categoryId: params.message_type_id,
           status: params.status,
+          visibleToClients: params.visible_to_clients,
         });
 
         return {
           content: [
             {
               type: "text",
-              text: `Message created successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}\nURL: ${message.app_url}`,
+              text: `Message created successfully!\n\nID: ${message.id}\nSubject: ${message.title}\nStatus: ${message.status}\nURL: ${message.app_url}\nVisible to clients: ${message.visible_to_clients ? "yes" : "no"}`,
             },
           ],
         };
